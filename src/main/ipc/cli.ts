@@ -1,5 +1,6 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
-import { spawn } from 'child_process'
+import { spawn, execFileSync } from 'child_process'
+import { existsSync } from 'fs'
 import store from '../store'
 
 function getRepoPath(): string {
@@ -10,9 +11,75 @@ function getRepoPath(): string {
   return repoPath
 }
 
+// Resolve absolute path to bunx (preferred) or npx
+// Lazy-resolved after fixPath() has run in index.ts
+// We prefer bunx because the website repo uses bun, and npx/npm
+// chokes on bun-specific overrides in the repo's package.json
+
+let _runnerPath: string | null = null
+let _runnerCmd: string = 'bunx'
+
+function getRunner(): { cmd: string; path: string } {
+  if (_runnerPath) return { cmd: _runnerCmd, path: _runnerPath }
+
+  const home = process.env.HOME || ''
+
+  // Try bunx first (preferred — website repo is a bun project)
+  const bunxCandidates = [
+    `${home}/.bun/bin/bunx`,
+    '/opt/homebrew/bin/bunx',
+    '/usr/local/bin/bunx'
+  ]
+  try {
+    _runnerPath = execFileSync('/usr/bin/env', ['which', 'bunx'], {
+      encoding: 'utf-8',
+      env: process.env
+    }).trim()
+    _runnerCmd = 'bunx'
+    return { cmd: _runnerCmd, path: _runnerPath }
+  } catch {
+    for (const c of bunxCandidates) {
+      if (existsSync(c)) {
+        _runnerPath = c
+        _runnerCmd = 'bunx'
+        return { cmd: _runnerCmd, path: _runnerPath }
+      }
+    }
+  }
+
+  // Fall back to npx
+  const npxCandidates = [
+    '/opt/homebrew/bin/npx',
+    '/usr/local/bin/npx',
+    `${home}/.nvm/versions/node/current/bin/npx`,
+    `${home}/.volta/bin/npx`
+  ]
+  try {
+    _runnerPath = execFileSync('/usr/bin/env', ['which', 'npx'], {
+      encoding: 'utf-8',
+      env: process.env
+    }).trim()
+    _runnerCmd = 'npx'
+    return { cmd: _runnerCmd, path: _runnerPath }
+  } catch {
+    for (const c of npxCandidates) {
+      if (existsSync(c)) {
+        _runnerPath = c
+        _runnerCmd = 'npx'
+        return { cmd: _runnerCmd, path: _runnerPath }
+      }
+    }
+  }
+
+  _runnerPath = 'npx'
+  _runnerCmd = 'npx'
+  return { cmd: _runnerCmd, path: _runnerPath }
+}
+
 function spawnCli(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = spawn('npx', ['appwrite-internal-cli', ...args], {
+    const { path } = getRunner()
+    const proc = spawn(path, ['appwrite-internal-cli', ...args], {
       cwd,
       shell: false,
       env: { ...process.env }
@@ -49,7 +116,8 @@ function spawnCliWithStreaming(
   event: IpcMainInvokeEvent
 ): Promise<{ success: boolean; output: string; error?: string }> {
   return new Promise((resolve) => {
-    const proc = spawn('npx', ['appwrite-internal-cli', ...args], {
+    const { path } = getRunner()
+    const proc = spawn(path, ['appwrite-internal-cli', ...args], {
       cwd,
       shell: false,
       env: { ...process.env }

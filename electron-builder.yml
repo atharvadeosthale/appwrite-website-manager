@@ -12,6 +12,7 @@ files:
 asarUnpack:
   - resources/**
 mac:
+  minimumSystemVersion: "11.0"
   identity: null
   target:
     - target: dmg
