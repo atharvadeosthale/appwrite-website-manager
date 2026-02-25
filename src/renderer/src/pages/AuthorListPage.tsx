@@ -48,7 +48,7 @@ function AuthorCard({ author, repoPath }: { author: Author; repoPath: string }):
       {/* Preview link */}
       <button
         type="button"
-        onClick={() => window.open(`http://localhost:5173/blog/author/${author.slug}`, '_blank')}
+        onClick={() => window.open(`http://localhost:5170/blog/author/${author.slug}`, '_blank')}
         className="absolute top-3 right-3 inline-flex items-center justify-center w-7 h-7 rounded-md
           text-text-tertiary hover:text-accent hover:bg-accent-muted
           opacity-0 group-hover:opacity-100

@@ -57,15 +57,15 @@ export function registerDevServerHandlers(): void {
     }
 
     // Check if port is already taken
-    const portTaken = await probePort(5173)
+    const portTaken = await probePort(5170)
     if (portTaken) {
-      return { success: false, error: 'Port 5173 is already in use' }
+      return { success: false, error: 'Port 5170 is already in use' }
     }
 
     const cwd = getRepoPath()
 
     try {
-      devServerProcess = spawn('bun', ['run', 'dev'], {
+      devServerProcess = spawn('bun', ['run', 'dev', '--', '--port', '5170'], {
         cwd,
         shell: true,
         env: { ...process.env }
@@ -107,14 +107,14 @@ export function registerDevServerHandlers(): void {
       devServerProcess = null
     }
 
-    // Also kill anything on port 5173 to be thorough
-    killPort(5173)
+    // Also kill anything on port 5170 to be thorough
+    killPort(5170)
 
     return { success: true }
   })
 
   ipcMain.handle('dev-server:status', async () => {
-    const running = await probePort(5173)
+    const running = await probePort(5170)
     return { running }
   })
 }

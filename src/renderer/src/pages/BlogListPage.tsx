@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { Plus, FileText, Search, Filter, ExternalLink } from 'lucide-react'
+import { Plus, FileText, Search, Filter, ExternalLink, Code } from 'lucide-react'
 import { useBlogs } from '../hooks/useBlogs'
 import { useAuthors } from '../hooks/useAuthors'
 import { useCategories } from '../hooks/useCategories'
@@ -376,7 +376,7 @@ export default function BlogListPage(): React.JSX.Element {
                             </div>
                             <button
                               type="button"
-                              onClick={() => window.open(`http://localhost:5173/blog/post/${blog.slug}`, '_blank')}
+                              onClick={() => window.open(`http://localhost:5170/blog/post/${blog.slug}`, '_blank')}
                               className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md
                                 text-text-tertiary hover:text-accent hover:bg-accent-muted
                                 opacity-0 group-hover:opacity-100
@@ -385,6 +385,18 @@ export default function BlogListPage(): React.JSX.Element {
                               title="Open local preview"
                             >
                               <ExternalLink size={14} strokeWidth={2} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => window.api.openInCursor(`src/routes/blog/post/${blog.slug}/+page.markdoc`)}
+                              className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md
+                                text-text-tertiary hover:text-accent hover:bg-accent-muted
+                                opacity-0 group-hover:opacity-100
+                                transition-all duration-200 cursor-pointer"
+                              aria-label={`Open ${blog.title} in Cursor`}
+                              title="Open in Cursor"
+                            >
+                              <Code size={14} strokeWidth={2} />
                             </button>
                           </div>
                         </td>

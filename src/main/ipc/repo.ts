@@ -1,6 +1,7 @@
 import { ipcMain, dialog } from 'electron'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+import { execSync } from 'child_process'
 import store from '../store'
 
 export function registerRepoHandlers(): void {
@@ -55,5 +56,17 @@ export function registerRepoHandlers(): void {
 
   ipcMain.handle('repo:set-path', async (_event, path: string) => {
     store.set('repoPath', path)
+  })
+
+  ipcMain.handle('repo:open-in-cursor', async (_event, filePath?: string) => {
+    const repoPath = store.get('repoPath')
+    if (!repoPath) return { success: false, error: 'No repo path configured' }
+    try {
+      const target = filePath ? join(repoPath, filePath) : repoPath
+      execSync(`cursor "${target}"`, { cwd: repoPath, env: process.env })
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
   })
 }

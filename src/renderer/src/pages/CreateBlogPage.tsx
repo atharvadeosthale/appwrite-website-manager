@@ -252,6 +252,7 @@ export default function CreateBlogPage(): React.JSX.Element {
   const [author, setAuthor] = useState('')
   const [category, setCategory] = useState('')
   const [featured, setFeatured] = useState(false)
+  const [unlisted, setUnlisted] = useState(false)
   const [coverPath, setCoverPath] = useState('')
   const [notionZipPath, setNotionZipPath] = useState('')
 
@@ -325,7 +326,8 @@ export default function CreateBlogPage(): React.JSX.Element {
       timeToRead,
       author,
       category,
-      featured
+      featured,
+      unlisted
     }
     if (coverPath) options.cover = coverPath
     if (notionZipPath) options.importNotion = notionZipPath
@@ -597,6 +599,17 @@ export default function CreateBlogPage(): React.JSX.Element {
             </p>
           </div>
           <Toggle checked={featured} onChange={setFeatured} />
+        </div>
+
+        {/* Unlisted */}
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <p className="text-sm font-medium text-text-primary">Unlisted</p>
+            <p className="text-xs text-text-tertiary mt-0.5">
+              Hidden from blog listing (for SEO blogs)
+            </p>
+          </div>
+          <Toggle checked={unlisted} onChange={setUnlisted} />
         </div>
 
         {/* Divider */}

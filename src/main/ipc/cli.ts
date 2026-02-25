@@ -76,13 +76,24 @@ function getRunner(): { cmd: string; path: string } {
   return { cmd: _runnerCmd, path: _runnerPath }
 }
 
+function getCliEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env }
+  // Ensure bun is in PATH for child processes the CLI spawns (e.g. bun run optimize)
+  const home = process.env.HOME || ''
+  const bunDir = `${home}/.bun/bin`
+  if (env.PATH && !env.PATH.includes(bunDir)) {
+    env.PATH = `${bunDir}:${env.PATH}`
+  }
+  return env
+}
+
 function spawnCli(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const { path } = getRunner()
     const proc = spawn(path, ['appwrite-internal-cli', ...args], {
       cwd,
       shell: false,
-      env: { ...process.env }
+      env: getCliEnv()
     })
 
     let stdout = ''
@@ -120,7 +131,7 @@ function spawnCliWithStreaming(
     const proc = spawn(path, ['appwrite-internal-cli', ...args], {
       cwd,
       shell: false,
-      env: { ...process.env }
+      env: getCliEnv()
     })
 
     let output = ''
@@ -225,6 +236,7 @@ export function registerCliHandlers(): void {
         author: string
         category: string
         featured: boolean
+        unlisted: boolean
         cover?: string
         importNotion?: string
       }
@@ -252,6 +264,7 @@ export function registerCliHandlers(): void {
       if (options.cover) args.push('--cover', options.cover)
       if (options.importNotion) args.push('--import-notion', options.importNotion)
       if (options.featured) args.push('--featured')
+      if (options.unlisted) args.push('--unlisted')
 
       args.push('--force')
 

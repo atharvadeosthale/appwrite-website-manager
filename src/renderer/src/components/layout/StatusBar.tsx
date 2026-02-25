@@ -581,6 +581,16 @@ export function StatusBar(): React.JSX.Element {
             </StatusBarPopover>
           </div>
 
+          {/* Open in Cursor */}
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={ExternalLink}
+            onClick={() => window.api.openInCursor()}
+          >
+            Cursor
+          </Button>
+
           {/* Separator */}
           <div className="w-px h-4 bg-border-primary mx-1" />
 

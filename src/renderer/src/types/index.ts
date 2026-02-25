@@ -19,6 +19,7 @@ export interface Blog {
   author: string
   category: string
   featured: boolean
+  unlisted: boolean
 }
 
 export interface Category {
@@ -63,6 +64,7 @@ export interface CreateBlogOptions {
   author: string
   category: string
   featured: boolean
+  unlisted: boolean
   cover?: string
   importNotion?: string
 }

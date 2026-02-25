@@ -16,6 +16,7 @@ interface AppAPI {
   validateRepo: (path: string) => Promise<{ valid: boolean; error?: string }>
   getRepoPath: () => Promise<string>
   setRepoPath: (path: string) => Promise<void>
+  openInCursor: (filePath?: string) => Promise<{ success: boolean; error?: string }>
 
   // Git
   gitBranch: () => Promise<string>

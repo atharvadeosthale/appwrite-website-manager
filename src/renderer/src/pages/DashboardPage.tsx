@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Users, Tag, FilePlus, UserPlus, Download, Sparkles, Star } from 'lucide-react'
+import { FileText, Users, Tag, FilePlus, UserPlus, Download, Sparkles, Star, Code } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
@@ -151,10 +151,25 @@ function RecentBlogsTable({
                 return (
                   <tr
                     key={blog.slug}
-                    className="border-b border-border-primary/60 last:border-0 hover:bg-bg-secondary/30 transition-colors duration-100"
+                    className="group border-b border-border-primary/60 last:border-0 hover:bg-bg-secondary/30 transition-colors duration-100"
                   >
-                    <td className="px-5 py-3 text-sm text-text-primary font-medium max-w-[280px] truncate">
-                      {blog.title}
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-text-primary font-medium truncate max-w-[280px]">
+                          {blog.title}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => window.api.openInCursor(`src/routes/blog/post/${blog.slug}/+page.markdoc`)}
+                          className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md
+                            text-text-tertiary hover:text-accent hover:bg-accent-muted
+                            opacity-0 group-hover:opacity-100
+                            transition-all duration-200 cursor-pointer"
+                          title="Open in Cursor"
+                        >
+                          <Code size={13} strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">

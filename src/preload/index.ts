@@ -9,6 +9,8 @@ const api = {
     ipcRenderer.invoke('repo:validate', path),
   getRepoPath: (): Promise<string> => ipcRenderer.invoke('repo:get-path'),
   setRepoPath: (path: string): Promise<void> => ipcRenderer.invoke('repo:set-path', path),
+  openInCursor: (filePath?: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('repo:open-in-cursor', filePath),
 
   // Git
   gitBranch: (): Promise<string> => ipcRenderer.invoke('git:branch'),
