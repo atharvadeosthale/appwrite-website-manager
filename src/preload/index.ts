@@ -86,7 +86,35 @@ const api = {
 
   // Filesystem
   selectZip: (): Promise<string | null> => ipcRenderer.invoke('fs:select-zip'),
-  selectImage: (): Promise<string | null> => ipcRenderer.invoke('fs:select-image')
+  selectImage: (): Promise<string | null> => ipcRenderer.invoke('fs:select-image'),
+
+  // Setup
+  setupCheckAll: (): Promise<{
+    allPassed: boolean
+    prerequisites: { id: string; installed: boolean; version?: string; authenticated?: boolean }[]
+    platform: string
+  }> => ipcRenderer.invoke('setup:check-all'),
+  setupInstallGit: (): Promise<{ success: boolean; error?: string; output?: string }> =>
+    ipcRenderer.invoke('setup:install-git'),
+  setupInstallNode: (): Promise<{ success: boolean; error?: string; output?: string }> =>
+    ipcRenderer.invoke('setup:install-node'),
+  setupInstallBun: (): Promise<{ success: boolean; error?: string; output?: string }> =>
+    ipcRenderer.invoke('setup:install-bun'),
+  setupInstallGh: (): Promise<{ success: boolean; error?: string; output?: string }> =>
+    ipcRenderer.invoke('setup:install-gh'),
+  setupAuthGh: (): Promise<{ success: boolean; error?: string; output?: string }> =>
+    ipcRenderer.invoke('setup:auth-gh'),
+  setupCancelAuthGh: (): Promise<{ success: boolean }> => ipcRenderer.invoke('setup:cancel-auth-gh'),
+  onSetupOutput: (callback: (data: string) => void): void => {
+    ipcRenderer.on('setup:output', (_event, data: string) => callback(data))
+  },
+  onSetupGhCode: (callback: (code: string) => void): void => {
+    ipcRenderer.on('setup:gh-code', (_event, code: string) => callback(code))
+  },
+  removeSetupListeners: (): void => {
+    ipcRenderer.removeAllListeners('setup:output')
+    ipcRenderer.removeAllListeners('setup:gh-code')
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

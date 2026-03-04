@@ -1,50 +1,10 @@
 import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { execSync } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import store from './store'
 import { registerAllHandlers } from './ipc'
-
-// Fix PATH for packaged app — Finder doesn't inherit the user's shell PATH
-// so bun, npx, git, gh etc. won't be found without this
-function fixPath(): void {
-  const home = process.env.HOME || ''
-  // Always add common tool locations
-  const extraPaths = [
-    `${home}/.bun/bin`,
-    '/opt/homebrew/bin',
-    '/opt/homebrew/sbin',
-    '/usr/local/bin',
-    '/usr/local/sbin',
-    `${home}/.nvm/versions/node`,
-    `${home}/.volta/bin`,
-    `${home}/.cargo/bin`
-  ]
-
-  // Try to get the real PATH from user's login shell using markers
-  // so we can extract it cleanly even if the shell prints extra output
-  try {
-    const userShell = process.env.SHELL || '/bin/zsh'
-    const marker = `__PATH_${Date.now()}__`
-    const output = execSync(
-      `${userShell} -lc 'echo "${marker}$PATH${marker}"'`,
-      { encoding: 'utf-8', timeout: 5000 }
-    )
-    const match = output.match(new RegExp(`${marker}(.+?)${marker}`))
-    if (match && match[1]) {
-      process.env.PATH = match[1]
-      return
-    }
-  } catch {
-    // Shell failed, use fallback
-  }
-
-  // Fallback: merge extra paths into whatever PATH we have
-  const current = process.env.PATH || '/usr/bin:/bin:/usr/sbin:/sbin'
-  const merged = new Set([...current.split(':'), ...extraPaths])
-  process.env.PATH = [...merged].filter(Boolean).join(':')
-}
+import { fixPath } from './utils/fixPath'
 
 fixPath()
 

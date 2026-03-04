@@ -68,3 +68,22 @@ export interface CreateBlogOptions {
   cover?: string
   importNotion?: string
 }
+
+export interface PrerequisiteStatus {
+  id: 'git' | 'node' | 'bun' | 'gh'
+  installed: boolean
+  version?: string
+  authenticated?: boolean  // only for gh
+}
+
+export interface SetupCheckResult {
+  allPassed: boolean
+  prerequisites: PrerequisiteStatus[]
+  platform: 'darwin' | 'win32' | 'linux'
+}
+
+export interface InstallResult {
+  success: boolean
+  error?: string
+  output?: string
+}

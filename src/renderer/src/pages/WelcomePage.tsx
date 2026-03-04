@@ -13,6 +13,17 @@ export default function WelcomePage(): React.JSX.Element {
   // On mount, check if a repo path is already configured
   useEffect(() => {
     async function checkExistingRepo(): Promise<void> {
+      // Check prerequisites first
+      try {
+        const setupResult = await window.api.setupCheckAll()
+        if (!setupResult.allPassed) {
+          navigate('/setup', { replace: true })
+          return
+        }
+      } catch {
+        // If check fails, don't block — continue to repo check
+      }
+
       try {
         const path = await window.api.getRepoPath()
         if (path) {

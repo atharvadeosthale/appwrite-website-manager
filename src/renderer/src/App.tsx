@@ -11,6 +11,7 @@ import SanitizePage from './pages/SanitizePage'
 import CategoryListPage from './pages/CategoryListPage'
 import BlogListPage from './pages/BlogListPage'
 import CreateBlogPage from './pages/CreateBlogPage'
+import SetupWizardPage from './pages/SetupWizardPage'
 
 function App(): React.JSX.Element {
   const refreshValue = useRefreshProvider()
@@ -21,6 +22,7 @@ function App(): React.JSX.Element {
         <HashRouter>
           <Routes>
             <Route path="/" element={<WelcomePage />} />
+            <Route path="/setup" element={<SetupWizardPage />} />
             <Route path="/dashboard" element={<DashboardLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="authors" element={<AuthorListPage />} />

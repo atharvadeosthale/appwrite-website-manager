@@ -3,6 +3,7 @@ import { registerGitHandlers } from './git'
 import { registerCliHandlers } from './cli'
 import { registerDevServerHandlers } from './devServer'
 import { registerFilesystemHandlers } from './filesystem'
+import { registerSetupHandlers } from './setup'
 
 export function registerAllHandlers(): void {
   registerRepoHandlers()
@@ -10,4 +11,5 @@ export function registerAllHandlers(): void {
   registerCliHandlers()
   registerDevServerHandlers()
   registerFilesystemHandlers()
+  registerSetupHandlers()
 }

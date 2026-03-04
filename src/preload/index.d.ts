@@ -7,7 +7,9 @@ import type {
   RemoteStatus,
   CLIResult,
   CreateAuthorOptions,
-  CreateBlogOptions
+  CreateBlogOptions,
+  SetupCheckResult,
+  InstallResult
 } from '../renderer/src/types'
 
 interface AppAPI {
@@ -57,6 +59,18 @@ interface AppAPI {
   // Filesystem
   selectZip: () => Promise<string | null>
   selectImage: () => Promise<string | null>
+
+  // Setup
+  setupCheckAll: () => Promise<SetupCheckResult>
+  setupInstallGit: () => Promise<InstallResult>
+  setupInstallNode: () => Promise<InstallResult>
+  setupInstallBun: () => Promise<InstallResult>
+  setupInstallGh: () => Promise<InstallResult>
+  setupAuthGh: () => Promise<InstallResult>
+  setupCancelAuthGh: () => Promise<{ success: boolean }>
+  onSetupOutput: (callback: (data: string) => void) => void
+  onSetupGhCode: (callback: (code: string) => void) => void
+  removeSetupListeners: () => void
 }
 
 declare global {
