@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   RefreshCw,
   ArrowRight,
+  Download,
   X
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
@@ -118,6 +119,7 @@ function PrerequisiteCard({
   terminalLines,
   authingGh,
   ghCode,
+  disabled,
   onInstall,
   onAuth,
   onCancelAuth,
@@ -128,6 +130,7 @@ function PrerequisiteCard({
   terminalLines: string[]
   authingGh: boolean
   ghCode: string | null
+  disabled: boolean
   onInstall: () => void
   onAuth: () => void
   onCancelAuth: () => void
@@ -187,18 +190,21 @@ function PrerequisiteCard({
                 <Badge variant="danger">Missing</Badge>
               )}
             </div>
-            <p className="text-xs text-text-tertiary mt-0.5">{meta.description}</p>
+            <p className="text-xs text-text-tertiary mt-0.5">
+              {meta.description}
+              {disabled && ' — install Git first'}
+            </p>
           </div>
 
           {/* Action button */}
           <div className="flex-shrink-0">
             {!isPassed && !needsAuth && !installing && (
-              <Button variant="primary" size="sm" onClick={onInstall}>
+              <Button variant="primary" size="sm" onClick={onInstall} disabled={disabled}>
                 Install
               </Button>
             )}
             {needsAuth && !authingGh && (
-              <Button variant="primary" size="sm" onClick={onAuth}>
+              <Button variant="primary" size="sm" onClick={onAuth} disabled={disabled}>
                 Authenticate
               </Button>
             )}
@@ -233,6 +239,7 @@ export default function SetupWizardPage(): React.JSX.Element {
   const { status, checking, recheck } = useSetupStatus()
 
   const [installingId, setInstallingId] = useState<PrerequisiteStatus['id'] | null>(null)
+  const [installingAll, setInstallingAll] = useState(false)
   const [terminalLines, setTerminalLines] = useState<string[]>([])
   const [ghCode, setGhCode] = useState<string | null>(null)
   const [authingGh, setAuthingGh] = useState(false)
@@ -281,6 +288,11 @@ export default function SetupWizardPage(): React.JSX.Element {
         if (!result.success) {
           setError(result.error ?? `Failed to install ${TOOL_META[id].label}.`)
         }
+        // xcode-select --install on macOS returns immediately (fire-and-forget)
+        // Show the output message so the user knows to follow the Apple dialog
+        if (id === 'git' && result.output && status?.platform === 'darwin') {
+          setTerminalLines([result.output])
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Installation failed unexpectedly.')
       } finally {
@@ -288,7 +300,7 @@ export default function SetupWizardPage(): React.JSX.Element {
         await recheck()
       }
     },
-    [recheck]
+    [recheck, status?.platform]
   )
 
   /* ── GH auth handler ── */
@@ -320,6 +332,38 @@ export default function SetupWizardPage(): React.JSX.Element {
     setAuthingGh(false)
     setGhCode(null)
   }, [])
+
+  /* ── Install All handler ── */
+
+  const handleInstallAll = useCallback(async () => {
+    setError(null)
+    setInstallingAll(true)
+    setTerminalLines([])
+
+    try {
+      const result = await window.api.setupInstallAll()
+      if (!result.success) {
+        setError(result.error ?? 'Install All failed.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Install All failed unexpectedly.')
+    } finally {
+      setInstallingAll(false)
+      await recheck()
+    }
+  }, [recheck])
+
+  /* ── Derived state ── */
+
+  const gitInstalled = status?.prerequisites.find((p) => p.id === 'git')?.installed ?? false
+  const isMac = status?.platform === 'darwin'
+  const busy = installingId !== null || installingAll || authingGh
+
+  // Show "Install All" when git is done and there are still uninstalled non-git tools
+  const uninstalledNonGit = status?.prerequisites.filter(
+    (p) => p.id !== 'git' && !p.installed
+  ) ?? []
+  const showInstallAll = gitInstalled && uninstalledNonGit.length > 1
 
   /* ── Loading state ── */
 
@@ -369,21 +413,48 @@ export default function SetupWizardPage(): React.JSX.Element {
 
           {/* Prerequisite cards */}
           <div className="space-y-3">
-            {status?.prerequisites.map((prereq, index) => (
-              <PrerequisiteCard
-                key={prereq.id}
-                prereq={prereq}
-                installing={installingId === prereq.id}
-                terminalLines={installingId === prereq.id ? terminalLines : []}
-                authingGh={authingGh}
-                ghCode={ghCode}
-                onInstall={() => handleInstall(prereq.id)}
-                onAuth={handleAuthGh}
-                onCancelAuth={handleCancelAuth}
-                index={index}
-              />
-            ))}
+            {status?.prerequisites.map((prereq, index) => {
+              const needsGitFirst = isMac && prereq.id !== 'git' && !gitInstalled
+
+              return (
+                <PrerequisiteCard
+                  key={prereq.id}
+                  prereq={prereq}
+                  installing={installingId === prereq.id}
+                  terminalLines={installingId === prereq.id ? terminalLines : []}
+                  authingGh={authingGh}
+                  ghCode={ghCode}
+                  disabled={needsGitFirst || (busy && installingId !== prereq.id)}
+                  onInstall={() => handleInstall(prereq.id)}
+                  onAuth={handleAuthGh}
+                  onCancelAuth={handleCancelAuth}
+                  index={index}
+                />
+              )
+            })}
           </div>
+
+          {/* Install All button + terminal output */}
+          {showInstallAll && (
+            <div className="mt-4 animate-fade-in">
+              <Button
+                variant="primary"
+                size="md"
+                icon={Download}
+                loading={installingAll}
+                disabled={busy && !installingAll}
+                onClick={handleInstallAll}
+                className="w-full"
+              >
+                {installingAll ? 'Installing...' : `Install All (${uninstalledNonGit.length} tools)`}
+              </Button>
+              {installingAll && terminalLines.length > 0 && (
+                <div className="mt-3 animate-fade-in">
+                  <TerminalOutput lines={terminalLines} title="Installing all tools" />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Error message */}
           {error && (

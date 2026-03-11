@@ -11,6 +11,7 @@ import SanitizePage from './pages/SanitizePage'
 import CategoryListPage from './pages/CategoryListPage'
 import BlogListPage from './pages/BlogListPage'
 import CreateBlogPage from './pages/CreateBlogPage'
+import EditBlogPage from './pages/EditBlogPage'
 import SetupWizardPage from './pages/SetupWizardPage'
 
 function App(): React.JSX.Element {
@@ -29,6 +30,7 @@ function App(): React.JSX.Element {
               <Route path="authors/create" element={<CreateAuthorPage />} />
               <Route path="blogs" element={<BlogListPage />} />
               <Route path="blogs/create" element={<CreateBlogPage />} />
+              <Route path="blogs/:slug/edit" element={<EditBlogPage />} />
               <Route path="import-notion" element={<NotionImportPage />} />
               <Route path="sanitize" element={<SanitizePage />} />
               <Route path="categories" element={<CategoryListPage />} />

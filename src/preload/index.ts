@@ -47,6 +47,19 @@ const api = {
     options: Record<string, unknown>
   ): Promise<{ success: boolean; output: string; error?: string }> =>
     ipcRenderer.invoke('cli:create-blog', options),
+  updateBlog: (
+    options: Record<string, unknown>
+  ): Promise<{ success: boolean; output: string; error?: string }> =>
+    ipcRenderer.invoke('cli:update-blog', options),
+  readBlogContent: (
+    slug: string
+  ): Promise<{ success: boolean; content?: string; error?: string }> =>
+    ipcRenderer.invoke('repo:read-blog-content', slug),
+  writeBlogContent: (
+    slug: string,
+    content: string
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('repo:write-blog-content', slug, content),
   importNotion: (
     zip: string,
     slug: string
@@ -102,6 +115,8 @@ const api = {
     ipcRenderer.invoke('setup:install-bun'),
   setupInstallGh: (): Promise<{ success: boolean; error?: string; output?: string }> =>
     ipcRenderer.invoke('setup:install-gh'),
+  setupInstallAll: (): Promise<{ success: boolean; error?: string; output?: string }> =>
+    ipcRenderer.invoke('setup:install-all'),
   setupAuthGh: (): Promise<{ success: boolean; error?: string; output?: string }> =>
     ipcRenderer.invoke('setup:auth-gh'),
   setupCancelAuthGh: (): Promise<{ success: boolean }> => ipcRenderer.invoke('setup:cancel-auth-gh'),

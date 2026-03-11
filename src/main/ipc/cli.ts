@@ -272,6 +272,53 @@ export function registerCliHandlers(): void {
     }
   )
 
+  ipcMain.handle(
+    'cli:update-blog',
+    async (
+      event,
+      options: {
+        title: string
+        slug: string
+        description: string
+        date: string
+        timeToRead: number
+        author: string
+        category: string
+        featured: boolean
+        unlisted: boolean
+        cover?: string
+      }
+    ) => {
+      const cwd = getRepoPath()
+      const args = [
+        'blog',
+        'create-blog',
+        '--title',
+        options.title,
+        '--slug',
+        options.slug,
+        '--description',
+        options.description,
+        '--date',
+        options.date,
+        '--time-to-read',
+        String(options.timeToRead),
+        '--author',
+        options.author,
+        '--category',
+        options.category
+      ]
+
+      if (options.cover) args.push('--cover', options.cover)
+      if (options.featured) args.push('--featured')
+      if (options.unlisted) args.push('--unlisted')
+
+      args.push('--force')
+
+      return spawnCliWithStreaming(args, cwd, event)
+    }
+  )
+
   ipcMain.handle('cli:import-notion', async (event, zip: string, slug: string) => {
     const cwd = getRepoPath()
     const args = ['blog', 'import-notion', '--zip', zip, '--slug', slug]

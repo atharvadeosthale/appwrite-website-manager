@@ -1,6 +1,6 @@
 import { ipcMain, dialog } from 'electron'
-import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { join, dirname } from 'path'
 import { execSync } from 'child_process'
 import store from '../store'
 
@@ -64,6 +64,34 @@ export function registerRepoHandlers(): void {
     try {
       const target = filePath ? join(repoPath, filePath) : repoPath
       execSync(`cursor "${target}"`, { cwd: repoPath, env: process.env })
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('repo:read-blog-content', async (_event, slug: string) => {
+    const repoPath = store.get('repoPath')
+    if (!repoPath) return { success: false, error: 'No repo path configured' }
+    try {
+      const filePath = join(repoPath, 'src', 'routes', 'blog', 'post', slug, '+page.markdoc')
+      if (!existsSync(filePath)) {
+        return { success: false, error: `Blog file not found: ${filePath}` }
+      }
+      const content = readFileSync(filePath, 'utf-8')
+      return { success: true, content }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('repo:write-blog-content', async (_event, slug: string, content: string) => {
+    const repoPath = store.get('repoPath')
+    if (!repoPath) return { success: false, error: 'No repo path configured' }
+    try {
+      const filePath = join(repoPath, 'src', 'routes', 'blog', 'post', slug, '+page.markdoc')
+      mkdirSync(dirname(filePath), { recursive: true })
+      writeFileSync(filePath, content, 'utf-8')
       return { success: true }
     } catch (err) {
       return { success: false, error: (err as Error).message }

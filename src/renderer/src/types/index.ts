@@ -69,6 +69,19 @@ export interface CreateBlogOptions {
   importNotion?: string
 }
 
+export interface UpdateBlogOptions {
+  title: string
+  slug: string
+  description: string
+  date: string
+  timeToRead: number
+  author: string
+  category: string
+  featured: boolean
+  unlisted: boolean
+  cover?: string
+}
+
 export interface PrerequisiteStatus {
   id: 'git' | 'node' | 'bun' | 'gh'
   installed: boolean

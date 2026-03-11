@@ -8,6 +8,7 @@ import type {
   CLIResult,
   CreateAuthorOptions,
   CreateBlogOptions,
+  UpdateBlogOptions,
   SetupCheckResult,
   InstallResult
 } from '../renderer/src/types'
@@ -40,6 +41,9 @@ interface AppAPI {
   // CLI - mutations
   createAuthor: (options: CreateAuthorOptions) => Promise<CLIResult>
   createBlog: (options: CreateBlogOptions) => Promise<CLIResult>
+  updateBlog: (options: UpdateBlogOptions) => Promise<CLIResult>
+  readBlogContent: (slug: string) => Promise<{ success: boolean; content?: string; error?: string }>
+  writeBlogContent: (slug: string, content: string) => Promise<{ success: boolean; error?: string }>
   importNotion: (zip: string, slug: string) => Promise<CLIResult>
   sanitize: (slug: string) => Promise<CLIResult>
 
@@ -66,6 +70,7 @@ interface AppAPI {
   setupInstallNode: () => Promise<InstallResult>
   setupInstallBun: () => Promise<InstallResult>
   setupInstallGh: () => Promise<InstallResult>
+  setupInstallAll: () => Promise<InstallResult>
   setupAuthGh: () => Promise<InstallResult>
   setupCancelAuthGh: () => Promise<{ success: boolean }>
   onSetupOutput: (callback: (data: string) => void) => void
