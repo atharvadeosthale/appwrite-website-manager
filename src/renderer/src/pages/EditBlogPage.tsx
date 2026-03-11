@@ -248,6 +248,7 @@ function AuthorDropdown({
 /* ─── Frontmatter helpers ─── */
 
 const FRONTMATTER_REGEX = /^---\n[\s\S]*?\n---\n?/
+const URL_PROTOCOL_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/
 
 function stripFrontmatter(content: string): { frontmatter: string; body: string } {
   const match = content.match(FRONTMATTER_REGEX)
@@ -258,6 +259,40 @@ function stripFrontmatter(content: string): { frontmatter: string; body: string 
     }
   }
   return { frontmatter: '', body: content }
+}
+
+function decodeURIComponentSafe(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+function joinRepoPath(basePath: string, rootRelativePath: string): string {
+  const normalizedBase = basePath.replace(/[\\/]+$/, '')
+  const normalizedPath = rootRelativePath.replace(/^\/+/, '')
+  return `${normalizedBase}/${normalizedPath}`
+}
+
+function toFileUrl(absolutePath: string): string {
+  const normalized = absolutePath.replace(/\\/g, '/')
+
+  if (/^[a-zA-Z]:\//.test(normalized)) {
+    return new URL(`file:///${normalized}`).toString()
+  }
+
+  const withLeadingSlash = normalized.startsWith('/') ? normalized : `/${normalized}`
+  return new URL(`file://${withLeadingSlash}`).toString()
+}
+
+function canLoadImage(src: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve(true)
+    img.onerror = () => resolve(false)
+    img.src = src
+  })
 }
 
 /* ─── EditBlogPage ─── */
@@ -319,9 +354,59 @@ export default function EditBlogPage(): React.JSX.Element {
 
   // Repo path for avatar images
   const [repoPath, setRepoPath] = useState('')
+  const imagePreviewCacheRef = useRef<Map<string, string>>(new Map())
+
   useEffect(() => {
     window.api.getRepoPath().then(setRepoPath).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    imagePreviewCacheRef.current.clear()
+  }, [repoPath, slug])
+
+  const resolveEditorImageSource = useCallback(
+    async (imageSource: string): Promise<string> => {
+      const cached = imagePreviewCacheRef.current.get(imageSource)
+      if (cached !== undefined) return cached
+
+      if (!repoPath) return imageSource
+
+      const source = imageSource.trim()
+      if (!source || URL_PROTOCOL_REGEX.test(source) || source.startsWith('//')) {
+        imagePreviewCacheRef.current.set(imageSource, imageSource)
+        return imageSource
+      }
+
+      const match = source.match(/^([^?#]+)([?#].*)?$/)
+      const rawPath = match?.[1] ?? source
+      const suffix = match?.[2] ?? ''
+
+      if (!rawPath.startsWith('/')) {
+        imagePreviewCacheRef.current.set(imageSource, imageSource)
+        return imageSource
+      }
+
+      const decodedPath = decodeURIComponentSafe(rawPath)
+      const candidates: string[] = []
+
+      // Keep parity with avatar loading (repo/static/*), then fall back to repo root.
+      if (!decodedPath.startsWith('/static/')) {
+        candidates.push(`${toFileUrl(joinRepoPath(repoPath, `/static${decodedPath}`))}${suffix}`)
+      }
+      candidates.push(`${toFileUrl(joinRepoPath(repoPath, decodedPath))}${suffix}`)
+
+      for (const candidate of candidates) {
+        if (await canLoadImage(candidate)) {
+          imagePreviewCacheRef.current.set(imageSource, candidate)
+          return candidate
+        }
+      }
+
+      imagePreviewCacheRef.current.set(imageSource, imageSource)
+      return imageSource
+    },
+    [repoPath]
+  )
 
   // Initialize form when blog loads
   useEffect(() => {
@@ -929,7 +1014,8 @@ export default function EditBlogPage(): React.JSX.Element {
                   linkPlugin(),
                   linkDialogPlugin(),
                   imagePlugin({
-                    disableImageResize: true
+                    disableImageResize: true,
+                    imagePreviewHandler: resolveEditorImageSource
                   }),
                   tablePlugin(),
                   codeBlockPlugin({ defaultCodeBlockLanguage: 'javascript' }),
