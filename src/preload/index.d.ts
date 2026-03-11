@@ -46,9 +46,13 @@ interface AppAPI {
   writeBlogContent: (slug: string, content: string) => Promise<{ success: boolean; error?: string }>
   importNotion: (zip: string, slug: string) => Promise<CLIResult>
   sanitize: (slug: string) => Promise<CLIResult>
+  writeWithAI: (blogSlug: string, aiPrompt: string) => Promise<CLIResult>
+  checkClaude: () => Promise<{ installed: boolean; version?: string; error?: string }>
+  openTerminalLogin: () => Promise<{ success: boolean; error?: string }>
 
   // CLI - streaming output listener
   onCliOutput: (callback: (data: string) => void) => void
+  onCliOutputDone: (callback: () => void) => void
   removeCliOutputListener: () => void
 
   // Dev Server

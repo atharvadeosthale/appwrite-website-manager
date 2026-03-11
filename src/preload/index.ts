@@ -67,13 +67,43 @@ const api = {
     ipcRenderer.invoke('cli:import-notion', zip, slug),
   sanitize: (slug: string): Promise<{ success: boolean; output: string; error?: string }> =>
     ipcRenderer.invoke('cli:sanitize', slug),
+  writeWithAI: (
+    blogSlug: string,
+    aiPrompt: string
+  ): Promise<{ success: boolean; output: string; error?: string }> => {
+    console.log('[preload:writeWithAI] Invoking cli:write-with-ai for', blogSlug)
+    return ipcRenderer.invoke('cli:write-with-ai', { blogSlug, aiPrompt }).then(
+      (result) => {
+        console.log('[preload:writeWithAI] IPC resolved — success:', result?.success)
+        return result
+      },
+      (err) => {
+        console.error('[preload:writeWithAI] IPC rejected:', err)
+        throw err
+      }
+    )
+  },
+  checkClaude: (): Promise<{ installed: boolean; version?: string; error?: string }> =>
+    ipcRenderer.invoke('cli:check-claude'),
+  openTerminalLogin: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('cli:open-terminal-login'),
 
   // CLI - streaming output listener
   onCliOutput: (callback: (data: string) => void): void => {
-    ipcRenderer.on('cli:output', (_event, data: string) => callback(data))
+    // Remove any stale listeners before adding a new one to prevent stacking
+    ipcRenderer.removeAllListeners('cli:output')
+    ipcRenderer.on('cli:output', (_event, data: string) => {
+      console.log('[preload:onCliOutput] Received chunk:', data.length, 'bytes')
+      callback(data)
+    })
+  },
+  onCliOutputDone: (callback: () => void): void => {
+    ipcRenderer.removeAllListeners('cli:output:done')
+    ipcRenderer.once('cli:output:done', () => callback())
   },
   removeCliOutputListener: (): void => {
     ipcRenderer.removeAllListeners('cli:output')
+    ipcRenderer.removeAllListeners('cli:output:done')
   },
 
   // Dev Server
