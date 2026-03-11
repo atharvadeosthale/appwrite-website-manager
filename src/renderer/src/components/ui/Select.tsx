@@ -21,12 +21,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const errorId = `${id}-error`
 
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         {label && (
-          <label
-            htmlFor={id}
-            className="text-sm font-medium text-text-primary select-none"
-          >
+          <label htmlFor={id} className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">
             {label}
           </label>
         )}
@@ -37,15 +34,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={!!error}
             aria-describedby={error ? errorId : undefined}
             className={clsx(
-              'w-full appearance-none bg-bg-elevated text-text-primary rounded-md font-sans',
-              'border px-3 py-2 pr-9 text-sm leading-relaxed',
-              'transition-all duration-200',
-              'cursor-pointer',
+              'w-full appearance-none rounded-[12px] border px-4 py-2.5 pr-11 text-sm',
+              'bg-[linear-gradient(180deg,rgba(23,23,27,0.94),rgba(15,15,18,0.88))] text-text-primary',
+              'shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] transition-all duration-200 cursor-pointer',
               error
-                ? 'border-danger focus:border-danger focus:shadow-[0_0_0_3px_rgba(217,48,54,0.1)]'
-                : 'border-border-primary hover:border-border-secondary focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-              'focus:outline-none',
-              'disabled:bg-bg-secondary disabled:text-text-tertiary disabled:cursor-not-allowed',
+                ? 'border-danger/45 focus:border-danger focus:shadow-[0_0_0_3px_rgba(255,140,140,0.12)]'
+                : 'border-white/10 hover:border-white/16 focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)]',
+              'focus:outline-none disabled:cursor-not-allowed disabled:border-white/8 disabled:bg-white/[0.03] disabled:text-text-tertiary',
               className
             )}
             {...props}
@@ -61,14 +56,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               </option>
             ))}
           </select>
-          <ChevronDown
-            size={16}
-            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary"
-          />
+          <ChevronDown size={16} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary" />
         </div>
         {error && (
           <p id={errorId} className="flex items-center gap-1.5 text-xs text-danger">
-            <AlertCircle size={13} strokeWidth={2} />
+            <AlertCircle size={13} strokeWidth={1.9} />
             {error}
           </p>
         )}

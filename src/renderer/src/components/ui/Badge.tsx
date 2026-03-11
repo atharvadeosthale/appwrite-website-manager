@@ -8,22 +8,18 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<BadgeVariant, string> = {
-  default: 'bg-bg-tertiary text-text-secondary',
-  success: 'bg-success-muted text-success',
-  warning: 'bg-warning-muted text-warning',
-  danger: 'bg-danger-muted text-danger',
-  accent: 'bg-accent-muted text-accent'
+  default: 'border-white/10 bg-white/[0.04] text-text-secondary',
+  success: 'border-success/20 bg-success-muted text-success',
+  warning: 'border-warning/24 bg-warning-muted text-warning',
+  danger: 'border-danger/24 bg-danger-muted text-danger',
+  accent: 'border-accent/20 bg-accent-muted text-accent'
 }
 
 export function Badge({ variant = 'default', children }: BadgeProps): React.JSX.Element {
   return (
     <span
       className={clsx(
-        'inline-flex items-center',
-        'px-2.5 py-0.5',
-        'text-xs font-medium leading-relaxed',
-        'rounded-full',
-        'select-none',
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]',
         variantStyles[variant]
       )}
     >

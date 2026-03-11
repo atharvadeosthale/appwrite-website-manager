@@ -1,13 +1,14 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { Plus, FileText, Search, Filter, ExternalLink, Code, Pencil } from 'lucide-react'
+import { Plus, FileText, Search, Filter, ExternalLink, Code, Pencil, Star } from 'lucide-react'
 import { useBlogs } from '../hooks/useBlogs'
 import { useAuthors } from '../hooks/useAuthors'
 import { useCategories } from '../hooks/useCategories'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { AuthorAvatar } from '../components/shared/AuthorAvatar'
+import { EmptyStatePanel, InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import type { Blog, Author, Category } from '../types'
 
 function useRepoPath(): string {
@@ -17,8 +18,6 @@ function useRepoPath(): string {
   }, [])
   return repoPath
 }
-
-/* ─── Date formatter ─── */
 
 function formatDate(dateStr: string): string {
   try {
@@ -32,8 +31,6 @@ function formatDate(dateStr: string): string {
     return dateStr
   }
 }
-
-/* ─── Component ─── */
 
 export default function BlogListPage(): React.JSX.Element {
   const navigate = useNavigate()
@@ -50,47 +47,31 @@ export default function BlogListPage(): React.JSX.Element {
   const repoPath = useRepoPath()
   const loading = blogsLoading || authorsLoading || categoriesLoading
 
-  // Lookup maps for joining slugs to names
-  const authorMap = useMemo<Record<string, Author>>(
-    () => Object.fromEntries(authors.map((a) => [a.slug, a])),
-    [authors]
-  )
-  const categoryMap = useMemo<Record<string, Category>>(
-    () => Object.fromEntries(categories.map((c) => [c.slug, c])),
-    [categories]
-  )
+  const authorMap = useMemo<Record<string, Author>>(() => Object.fromEntries(authors.map((author) => [author.slug, author])), [authors])
+  const categoryMap = useMemo<Record<string, Category>>(() => Object.fromEntries(categories.map((category) => [category.slug, category])), [categories])
 
-  // Filtered and sorted blogs
   const displayBlogs = useMemo(() => {
     let result = [...blogs]
 
-    // Search filter
     if (search.trim()) {
       const query = search.toLowerCase()
-      result = result.filter(
-        (b) =>
-          b.title.toLowerCase().includes(query) ||
-          b.slug.toLowerCase().includes(query)
-      )
+      result = result.filter((blog) => blog.title.toLowerCase().includes(query) || blog.slug.toLowerCase().includes(query))
     }
 
-    // Category filter
     if (filterCategory) {
-      result = result.filter((b) => b.category === filterCategory)
+      result = result.filter((blog) => blog.category === filterCategory)
     }
 
-    // Author filter
     if (filterAuthor) {
-      result = result.filter((b) => b.author === filterAuthor)
+      result = result.filter((blog) => blog.author === filterAuthor)
     }
 
-    // Sort
     if (sortKey) {
       result.sort((a, b) => {
         const aVal = a[sortKey] ?? ''
         const bVal = b[sortKey] ?? ''
-        const cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true })
-        return sortDir === 'asc' ? cmp : -cmp
+        const comparison = String(aVal).localeCompare(String(bVal), undefined, { numeric: true })
+        return sortDir === 'asc' ? comparison : -comparison
       })
     }
 
@@ -99,382 +80,240 @@ export default function BlogListPage(): React.JSX.Element {
 
   const handleSort = (key: 'title' | 'date'): void => {
     if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      setSortDir((direction) => (direction === 'asc' ? 'desc' : 'asc'))
     } else {
       setSortKey(key)
       setSortDir('asc')
     }
   }
 
-  const SortIndicator = ({ column }: { column: 'title' | 'date' }): React.JSX.Element | null => {
-    if (sortKey !== column) {
-      return (
-        <span className="text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity ml-1">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M6 2.5L8.5 5.5H3.5L6 2.5Z" fill="currentColor" />
-            <path d="M6 9.5L3.5 6.5H8.5L6 9.5Z" fill="currentColor" />
-          </svg>
-        </span>
-      )
-    }
-    return (
-      <span className="text-accent ml-1">
-        {sortDir === 'asc' ? (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M6 3L9 7H3L6 3Z" fill="currentColor" />
-          </svg>
-        ) : (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M6 9L3 5H9L6 9Z" fill="currentColor" />
-          </svg>
-        )}
-      </span>
-    )
-  }
-
-  // Determine if we have any active filters
   const hasFilters = search || filterCategory || filterAuthor
+  const featuredCount = useMemo(() => blogs.filter((blog) => blog.featured).length, [blogs])
 
-  /* ─── Loading state ─── */
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 animate-fade-in">
-        <Spinner size="lg" />
-        <p className="text-sm text-text-secondary">Loading blog posts...</p>
-      </div>
+      <PageScaffold>
+        <SurfaceCard className="flex min-h-[24rem] flex-col items-center justify-center">
+          <Spinner size="lg" className="text-cyan" />
+          <p className="mt-4 text-sm text-text-secondary">Loading blog posts...</p>
+        </SurfaceCard>
+      </PageScaffold>
     )
   }
 
-  /* ─── Error state ─── */
   if (blogsError) {
     return (
-      <div className="p-8 animate-fade-in">
-        <div className="bg-danger-muted border border-danger/20 rounded-lg p-6 text-center">
-          <p className="text-sm text-danger font-medium">Failed to load blog posts</p>
-          <p className="text-xs text-text-secondary mt-1">{blogsError}</p>
-        </div>
-      </div>
+      <PageScaffold>
+        <SurfaceCard className="flex min-h-[24rem] flex-col items-center justify-center text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-[16px] border border-danger/20 bg-danger-muted text-danger">
+            <FileText size={28} strokeWidth={1.8} />
+          </div>
+          <h2 className="mt-5 font-display text-3xl text-text-primary">Failed to load blog posts</h2>
+          <p className="mt-3 max-w-md text-sm leading-7 text-text-secondary">{blogsError}</p>
+        </SurfaceCard>
+      </PageScaffold>
     )
   }
 
   return (
-    <div className="p-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">Blog Posts</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            {blogs.length} {blogs.length === 1 ? 'post' : 'posts'} in your website
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          icon={Plus}
-          onClick={() => navigate('/dashboard/blogs/create')}
-        >
-          Create Blog
-        </Button>
-      </div>
+    <PageScaffold>
+      <div className="space-y-4">
+        <PageIntro
+          eyebrow="Library"
+          title="Your blog catalog, operationally sharp."
+          description="Filter, preview, open source files, and jump directly into edits from a single high-signal index."
+          meta={
+            <>
+              <InfoPill>{blogs.length} posts total</InfoPill>
+              <InfoPill>{featuredCount} featured</InfoPill>
+            </>
+          }
+          actions={
+            <Button variant="primary" icon={Plus} onClick={() => navigate('/dashboard/blogs/create')}>
+              Create Blog
+            </Button>
+          }
+        />
 
-      {/* Search + Filters bar */}
-      <div className="flex items-center gap-3 mb-5">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
+        {blogs.length === 0 ? (
+          <EmptyStatePanel
+            icon={FileText}
+            title="No blog posts yet"
+            description="Create the first story in this repository and the workspace will immediately start tracking metadata, imports, and editing flows for it."
+            action={
+              <Button variant="primary" icon={Plus} onClick={() => navigate('/dashboard/blogs/create')}>
+                Create First Post
+              </Button>
+            }
           />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title..."
-            className={clsx(
-              'w-full pl-9 pr-3 py-2',
-              'text-sm bg-bg-elevated rounded-md',
-              'border border-border-primary',
-              'focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-              'placeholder:text-text-tertiary',
-              'transition-all duration-200'
-            )}
-          />
-        </div>
+        ) : (
+          <>
+            <SurfaceCard className="overflow-hidden p-0" highlight>
+              <div className="border-b border-white/8 px-3 py-2">
+                <div className="grid gap-1.5 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,0.78fr)_minmax(0,0.78fr)_auto]">
+                  <div className="relative">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search by title or slug..."
+                      className="h-8 w-full rounded-[9px] border border-white/10 bg-white/[0.04] pl-8 pr-3 text-[12px] text-text-primary focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none"
+                    />
+                  </div>
 
-        {/* Category filter */}
-        <div className="relative">
-          <Filter
-            size={13}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
-          />
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className={clsx(
-              'appearance-none pl-8 pr-8 py-2',
-              'text-sm bg-bg-elevated rounded-md',
-              'border border-border-primary',
-              'focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-              'transition-all duration-200 cursor-pointer',
-              !filterCategory && 'text-text-tertiary'
-            )}
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
-          >
-            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </div>
-
-        {/* Author filter */}
-        <div className="relative">
-          <Filter
-            size={13}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
-          />
-          <select
-            value={filterAuthor}
-            onChange={(e) => setFilterAuthor(e.target.value)}
-            className={clsx(
-              'appearance-none pl-8 pr-8 py-2',
-              'text-sm bg-bg-elevated rounded-md',
-              'border border-border-primary',
-              'focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-              'transition-all duration-200 cursor-pointer',
-              !filterAuthor && 'text-text-tertiary'
-            )}
-          >
-            <option value="">All Authors</option>
-            {authors.map((a) => (
-              <option key={a.slug} value={a.slug}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none"
-          >
-            <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </div>
-
-        {/* Clear filters */}
-        {hasFilters && (
-          <button
-            type="button"
-            onClick={() => {
-              setSearch('')
-              setFilterCategory('')
-              setFilterAuthor('')
-            }}
-            className="text-xs text-accent hover:text-accent-hover transition-colors cursor-pointer font-medium"
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
-
-      {/* Empty state — no blogs at all */}
-      {blogs.length === 0 && (
-        <div className="bg-bg-elevated border border-border-primary rounded-lg p-12 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent-muted mb-4">
-            <FileText size={24} className="text-accent" />
-          </div>
-          <h3 className="text-base font-semibold text-text-primary mb-1">No blog posts yet</h3>
-          <p className="text-sm text-text-secondary mb-5 max-w-sm mx-auto">
-            Get started by creating your first blog post. It only takes a minute.
-          </p>
-          <Button
-            variant="primary"
-            icon={Plus}
-            onClick={() => navigate('/dashboard/blogs/create')}
-          >
-            Create Your First Post
-          </Button>
-        </div>
-      )}
-
-      {/* Table */}
-      {blogs.length > 0 && (
-        <div className="rounded-lg border border-border-primary bg-bg-elevated overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border-primary bg-bg-secondary/50">
-                  <th
-                    className="group px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide cursor-pointer select-none hover:text-text-primary transition-colors"
-                    onClick={() => handleSort('title')}
-                  >
-                    <span className="inline-flex items-center">
-                      Title
-                      <SortIndicator column="title" />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                    Author
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                    Category
-                  </th>
-                  <th
-                    className="group px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide cursor-pointer select-none hover:text-text-primary transition-colors"
-                    onClick={() => handleSort('date')}
-                  >
-                    <span className="inline-flex items-center">
-                      Date
-                      <SortIndicator column="date" />
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                    Featured
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayBlogs.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-10 text-center text-sm text-text-tertiary"
+                  <div className="relative">
+                    <Filter size={11} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                    <select
+                      value={filterCategory}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                      className={clsx('h-8 w-full appearance-none rounded-[9px] border border-white/10 bg-white/[0.04] pl-8 pr-8 text-[12px] focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none', !filterCategory && 'text-text-tertiary')}
                     >
-                      No matching blog posts found
-                    </td>
-                  </tr>
-                ) : (
-                  displayBlogs.map((blog: Blog) => {
-                    const author = authorMap[blog.author]
-                    const category = categoryMap[blog.category]
-                    return (
-                      <tr
-                        key={blog.slug}
-                        className="group border-b border-border-primary/60 last:border-0 hover:bg-bg-secondary/30 transition-colors duration-100"
+                      <option value="">All Categories</option>
+                      {categories.map((category) => (
+                        <option key={category.slug} value={category.slug}>{category.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="relative">
+                    <Filter size={11} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                    <select
+                      value={filterAuthor}
+                      onChange={(e) => setFilterAuthor(e.target.value)}
+                      className={clsx('h-8 w-full appearance-none rounded-[9px] border border-white/10 bg-white/[0.04] pl-8 pr-8 text-[12px] focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none', !filterAuthor && 'text-text-tertiary')}
+                    >
+                      <option value="">All Authors</option>
+                      {authors.map((author) => (
+                        <option key={author.slug} value={author.slug}>{author.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1.5">
+                    {hasFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSearch('')
+                          setFilterCategory('')
+                          setFilterAuthor('')
+                        }}
                       >
-                        {/* Title */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className="text-sm font-medium text-text-primary leading-snug">
-                                {blog.title}
-                              </span>
-                              <span className="text-xs text-text-tertiary mt-0.5 truncate max-w-xs">
-                                {blog.slug}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => window.open(`http://localhost:5170/blog/post/${blog.slug}`, '_blank')}
-                              className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md
-                                text-text-tertiary hover:text-accent hover:bg-accent-muted
-                                opacity-0 group-hover:opacity-100
-                                transition-all duration-200 cursor-pointer"
-                              aria-label={`Preview ${blog.title}`}
-                              title="Open local preview"
-                            >
-                              <ExternalLink size={14} strokeWidth={2} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/dashboard/blogs/${blog.slug}/edit`)}
-                              className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md
-                                text-text-tertiary hover:text-accent hover:bg-accent-muted
-                                opacity-0 group-hover:opacity-100
-                                transition-all duration-200 cursor-pointer"
-                              aria-label={`Edit ${blog.title}`}
-                              title="Edit blog post"
-                            >
-                              <Pencil size={14} strokeWidth={2} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => window.api.openInCursor(`src/routes/blog/post/${blog.slug}/+page.markdoc`)}
-                              className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md
-                                text-text-tertiary hover:text-accent hover:bg-accent-muted
-                                opacity-0 group-hover:opacity-100
-                                transition-all duration-200 cursor-pointer"
-                              aria-label={`Open ${blog.title} in Cursor`}
-                              title="Open in Cursor"
-                            >
-                              <Code size={14} strokeWidth={2} />
-                            </button>
-                          </div>
-                        </td>
-                        {/* Author */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <AuthorAvatar
-                              src={author?.avatar && repoPath ? `file://${repoPath}/static${author.avatar}` : undefined}
-                              name={author?.name ?? blog.author}
-                              size="sm"
-                            />
-                            <span className="text-sm text-text-primary">
-                              {author?.name ?? blog.author}
-                            </span>
-                          </div>
-                        </td>
-                        {/* Category */}
-                        <td className="px-4 py-3">
-                          <span
-                            className={clsx(
-                              'inline-flex items-center px-2.5 py-0.5 rounded-full',
-                              'text-xs font-medium',
-                              'bg-bg-secondary text-text-secondary',
-                              'border border-border-primary'
-                            )}
-                          >
-                            {category?.name ?? blog.category}
-                          </span>
-                        </td>
-                        {/* Date */}
-                        <td className="px-4 py-3 text-sm text-text-secondary tabular-nums">
-                          {formatDate(blog.date)}
-                        </td>
-                        {/* Featured */}
-                        <td className="px-4 py-3">
-                          {blog.featured ? (
-                            <span
-                              className={clsx(
-                                'inline-flex items-center px-2.5 py-0.5 rounded-full',
-                                'text-xs font-medium',
-                                'bg-accent-muted text-accent'
-                              )}
-                            >
-                              Featured
-                            </span>
-                          ) : (
-                            <span className="text-xs text-text-tertiary">&mdash;</span>
-                          )}
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-fixed border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/8 bg-white/[0.03]">
+                      <th
+                        className="w-[44%] cursor-pointer px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-text-tertiary transition-colors duration-150 hover:text-text-primary"
+                        onClick={() => handleSort('title')}
+                      >
+                        Title {sortKey === 'title' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </th>
+                      <th className="w-[18%] px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">Author</th>
+                      <th className="w-[16%] px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">Category</th>
+                      <th
+                        className="w-[13%] cursor-pointer px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-text-tertiary transition-colors duration-150 hover:text-text-primary"
+                        onClick={() => handleSort('date')}
+                      >
+                        Date {sortKey === 'date' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                      </th>
+                      <th className="w-[9%] px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">Flags</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayBlogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-3 py-10 text-center text-sm text-text-tertiary">
+                          No matching blog posts found
                         </td>
                       </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Footer */}
-          <div className="px-4 py-2.5 border-t border-border-primary bg-bg-secondary/30">
-            <p className="text-xs text-text-tertiary">
-              {displayBlogs.length} {displayBlogs.length === 1 ? 'post' : 'posts'}
-              {hasFilters && ` (filtered from ${blogs.length} total)`}
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
+                    ) : (
+                      displayBlogs.map((blog: Blog) => {
+                        const author = authorMap[blog.author]
+                        const category = categoryMap[blog.category]
+                        return (
+                          <tr key={blog.slug} className="group border-b border-white/6 transition-colors duration-150 hover:bg-white/[0.03] last:border-0">
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[13px] font-medium leading-5 text-text-primary">{blog.title}</p>
+                                  <p className="mt-0.5 truncate font-mono text-[10px] leading-4 text-text-tertiary">{blog.slug}</p>
+                                </div>
+                                <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => window.open(`http://localhost:5170/blog/post/${blog.slug}`, '_blank')}
+                                    className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-[8px] border border-transparent text-text-tertiary transition-all duration-150 hover:border-white/10 hover:bg-white/[0.05] hover:text-text-primary"
+                                    aria-label={`Preview ${blog.title}`}
+                                    title="Open local preview"
+                                  >
+                                    <ExternalLink size={12} strokeWidth={1.9} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/dashboard/blogs/${blog.slug}/edit`)}
+                                    className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-[8px] border border-transparent text-text-tertiary transition-all duration-150 hover:border-white/10 hover:bg-white/[0.05] hover:text-accent"
+                                    aria-label={`Edit ${blog.title}`}
+                                    title="Edit blog post"
+                                  >
+                                    <Pencil size={12} strokeWidth={1.9} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => window.api.openInCursor(`src/routes/blog/post/${blog.slug}/+page.markdoc`)}
+                                    className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-[8px] border border-transparent text-text-tertiary transition-all duration-150 hover:border-white/10 hover:bg-white/[0.05] hover:text-text-primary"
+                                    aria-label={`Open ${blog.title} in Cursor`}
+                                    title="Open in Cursor"
+                                  >
+                                    <Code size={12} strokeWidth={1.9} />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <div className="scale-90">
+                                  <AuthorAvatar src={author?.avatar && repoPath ? `file://${repoPath}/static${author.avatar}` : undefined} name={author?.name ?? blog.author} size="sm" />
+                                </div>
+                                <span className="truncate text-[12px] text-text-secondary">{author?.name ?? blog.author}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 text-[12px] capitalize text-text-secondary">{category?.name ?? blog.category}</td>
+                            <td className="px-3 py-2.5 text-[12px] text-text-secondary">{formatDate(blog.date)}</td>
+                            <td className="px-3 py-2.5">
+                              {blog.featured ? (
+                                <span className="inline-flex items-center gap-1 rounded-[8px] border border-accent/20 bg-accent-muted px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] text-accent">
+                                  <Star size={9} strokeWidth={1.8} />
+                                  Live
+                                </span>
+                              ) : (
+                                <span className="text-[10px] uppercase tracking-[0.12em] text-text-tertiary">Std</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="border-t border-white/8 bg-white/[0.03] px-3 py-1.5 text-[10.5px] text-text-tertiary">
+                {displayBlogs.length} {displayBlogs.length === 1 ? 'post' : 'posts'}
+                {hasFilters && ` filtered from ${blogs.length}`}
+              </div>
+            </SurfaceCard>
+          </>
+        )}
+      </div>
+    </PageScaffold>
   )
 }

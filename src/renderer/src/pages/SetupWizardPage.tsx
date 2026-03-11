@@ -60,21 +60,23 @@ function GhAuthPanel({
 
   return (
     <div className="mt-4 animate-fade-in">
-      <div className="rounded-lg bg-bg-secondary border border-border-primary p-5">
+      <div className="rounded-[16px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,28,0.94),rgba(12,12,14,0.98))] p-4">
         {code ? (
           <div className="flex flex-col items-center text-center gap-3">
-            {/* One-time code display */}
-            <p className="text-xs text-text-secondary">
+            <p className="text-xs uppercase tracking-[0.16em] text-text-tertiary">
+              GitHub device flow
+            </p>
+            <p className="text-sm text-text-secondary">
               Enter this code at{' '}
               <span className="font-medium text-text-primary">github.com/login/device</span>
             </p>
             <div className="flex items-center gap-2">
-              <code className="font-mono text-2xl font-semibold tracking-[0.2em] text-text-primary bg-bg-elevated border border-border-secondary rounded-lg px-5 py-3 select-all">
+              <code className="rounded-[12px] border border-white/10 bg-[#0b0b0d] px-4 py-2.5 font-mono text-xl font-semibold tracking-[0.2em] text-text-primary select-all">
                 {code}
               </code>
               <button
                 onClick={handleCopy}
-                className="p-2 rounded-md text-text-tertiary hover:text-text-primary hover:bg-bg-hover transition-colors duration-200 cursor-pointer"
+                className="rounded-2xl border border-white/8 bg-white/[0.04] p-2 text-text-tertiary transition-colors duration-200 hover:text-text-primary hover:bg-white/[0.08] cursor-pointer"
                 aria-label="Copy code"
               >
                 {copied ? (
@@ -85,22 +87,21 @@ function GhAuthPanel({
               </button>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <Spinner size="sm" className="text-text-tertiary" />
-              <span className="text-xs text-text-tertiary">
+              <Spinner size="sm" className="text-cyan" />
+              <span className="text-xs uppercase tracking-[0.14em] text-text-tertiary">
                 Waiting for browser authentication...
               </span>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 py-2">
-            <Spinner size="md" className="text-accent" />
-            <span className="text-xs text-text-secondary">
+            <Spinner size="md" className="text-cyan" />
+            <span className="text-xs uppercase tracking-[0.14em] text-text-secondary">
               Starting authentication...
             </span>
           </div>
         )}
 
-        {/* Cancel button */}
         <div className="flex justify-center mt-4">
           <Button variant="ghost" size="sm" icon={X} onClick={onCancel}>
             Cancel
@@ -149,19 +150,18 @@ function PrerequisiteCard({
     >
       <div
         className={`
-          bg-bg-elevated rounded-lg border border-border-primary p-4
-          transition-all duration-300
-          ${isPassed ? 'opacity-60' : ''}
-          ${installing ? 'border-accent/30 shadow-accent/5 shadow-md' : ''}
+          rounded-[14px] border p-4 transition-all duration-300
+          bg-[linear-gradient(180deg,rgba(24,24,28,0.95),rgba(12,12,14,0.98))]
+          ${isPassed ? 'opacity-70 border-white/8' : 'border-white/10'}
+          ${installing ? 'border-white/14 shadow-[0_20px_46px_rgba(0,0,0,0.26)]' : ''}
         `}
       >
         <div className="flex items-start gap-3">
-          {/* Status icon */}
           <div
             className={`
-              mt-0.5 flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
+              mt-0.5 flex-shrink-0 w-10 h-10 rounded-[12px] flex items-center justify-center border
               transition-colors duration-300
-              ${isPassed ? 'bg-success-muted' : needsAuth ? 'bg-warning-muted' : 'bg-bg-tertiary'}
+              ${isPassed ? 'bg-success-muted border-success/18' : needsAuth ? 'bg-warning-muted border-warning/18' : 'bg-white/[0.04] border-white/8'}
             `}
           >
             {isPassed ? (
@@ -173,10 +173,9 @@ function PrerequisiteCard({
             )}
           </div>
 
-          {/* Tool info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-text-primary">{meta.label}</span>
+              <span className="font-display text-xl text-text-primary">{meta.label}</span>
               {isPassed && prereq.version && (
                 <Badge variant="success">{prereq.version}</Badge>
               )}
@@ -190,13 +189,12 @@ function PrerequisiteCard({
                 <Badge variant="danger">Missing</Badge>
               )}
             </div>
-            <p className="text-xs text-text-tertiary mt-0.5">
+            <p className="mt-1 text-sm leading-6 text-text-secondary">
               {meta.description}
               {disabled && ' — install Git first'}
             </p>
           </div>
 
-          {/* Action button */}
           <div className="flex-shrink-0">
             {!isPassed && !needsAuth && !installing && (
               <Button variant="primary" size="sm" onClick={onInstall} disabled={disabled}>
@@ -223,7 +221,6 @@ function PrerequisiteCard({
           </div>
         )}
 
-        {/* GH auth panel */}
         {prereq.id === 'gh' && authingGh && (
           <GhAuthPanel code={ghCode} onCancel={onCancelAuth} />
         )}
@@ -369,9 +366,9 @@ export default function SetupWizardPage(): React.JSX.Element {
 
   if (checking && !status) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-bg-primary">
-        <div className="animate-fade-in flex flex-col items-center gap-4">
-          <Spinner size="lg" />
+      <div className="flex items-center justify-center min-h-screen px-6">
+        <div className="surface-panel animate-fade-in flex min-h-[20rem] w-full max-w-lg flex-col items-center justify-center rounded-[16px] gap-4">
+          <Spinner size="lg" className="text-cyan" />
           <p className="text-sm text-text-secondary">Checking prerequisites...</p>
         </div>
       </div>
@@ -379,16 +376,17 @@ export default function SetupWizardPage(): React.JSX.Element {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-bg-primary">
-      <div className="animate-fade-in flex flex-col items-center max-w-2xl w-full mx-4">
-        {/* Main card */}
-        <div className="w-full bg-bg-elevated rounded-xl shadow-lg border border-border-primary p-10">
-          {/* Header */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-accent-muted mb-5">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-8 sm:px-6">
+      <div className="pointer-events-none absolute left-[-6rem] top-[-6rem] h-[16rem] w-[16rem] rounded-full bg-white/6 blur-[100px]" />
+      <div className="pointer-events-none absolute right-[-8rem] bottom-[-6rem] h-[18rem] w-[18rem] rounded-full bg-accent/8 blur-[110px]" />
+      <div className="animate-fade-in flex max-w-5xl w-full flex-col items-center">
+        <div className="relative w-full overflow-hidden rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgba(26,26,30,0.98),rgba(12,12,14,0.98))] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.28)] sm:p-8">
+          <div className="pointer-events-none absolute inset-x-20 top-0 h-px bg-gradient-to-r from-transparent via-white/16 to-transparent" />
+          <div className="mb-8 flex flex-col items-center text-center">
+            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[14px] border border-accent/18 bg-accent-muted text-accent shadow-[0_18px_36px_rgba(255,92,143,0.14)]">
               <svg
-                width="28"
-                height="28"
+                width="24"
+                height="24"
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
@@ -403,16 +401,16 @@ export default function SetupWizardPage(): React.JSX.Element {
                 />
               </svg>
             </div>
-            <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
-              Setting Things Up
+            <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Onboarding</p>
+            <h1 className="mt-2 font-display text-4xl text-text-primary sm:text-[2.75rem]">
+              Setting up the workspace
             </h1>
-            <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-sm">
-              Let's make sure you have everything installed
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary sm:text-base">
+              Install the local tooling stack, authenticate GitHub CLI if needed, and unlock the full website management workflow.
             </p>
           </div>
 
-          {/* Prerequisite cards */}
-          <div className="space-y-3">
+          <div className="grid gap-3 lg:grid-cols-2">
             {status?.prerequisites.map((prereq, index) => {
               const needsGitFirst = isMac && prereq.id !== 'git' && !gitInstalled
 
@@ -434,7 +432,6 @@ export default function SetupWizardPage(): React.JSX.Element {
             })}
           </div>
 
-          {/* Install All button + terminal output */}
           {showInstallAll && (
             <div className="mt-4 animate-fade-in">
               <Button
@@ -456,15 +453,13 @@ export default function SetupWizardPage(): React.JSX.Element {
             </div>
           )}
 
-          {/* Error message */}
           {error && (
-            <div className="mt-5 animate-fade-in rounded-lg bg-danger-muted border border-danger/20 px-4 py-3">
-              <p className="text-sm text-danger leading-relaxed">{error}</p>
+            <div className="mt-5 animate-fade-in rounded-[16px] border border-danger/20 bg-danger-muted px-4 py-4">
+              <p className="text-sm leading-7 text-danger">{error}</p>
             </div>
           )}
 
-          {/* Bottom actions */}
-          <div className="mt-8 flex items-center justify-between">
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
             <Button
               variant="secondary"
               size="md"
@@ -486,7 +481,6 @@ export default function SetupWizardPage(): React.JSX.Element {
             </Button>
           </div>
 
-          {/* All-passed success message */}
           {status?.allPassed && (
             <div className="mt-5 animate-scale-in flex items-center justify-center gap-2 text-success">
               <CheckCircle2 size={16} />
@@ -497,8 +491,7 @@ export default function SetupWizardPage(): React.JSX.Element {
           )}
         </div>
 
-        {/* Footer hint */}
-        <p className="mt-6 text-xs text-text-tertiary text-center leading-relaxed">
+        <p className="mt-6 text-center text-xs leading-relaxed text-text-tertiary">
           These tools are required to build and deploy the Appwrite website.
         </p>
       </div>

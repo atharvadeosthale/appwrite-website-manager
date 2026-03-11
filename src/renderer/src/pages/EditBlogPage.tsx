@@ -58,6 +58,7 @@ import { WriteWithAIModal } from '../components/shared/WriteWithAIModal'
 import { ClaudeSetupDialog } from '../components/shared/ClaudeSetupDialog'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { FormField } from '../components/forms/FormField'
+import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import type { Author, UpdateBlogOptions } from '../types'
 
 /* ─── Author Dropdown with Avatars ─── */
@@ -119,7 +120,6 @@ function AuthorDropdown({
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Trigger button */}
       <button
         type="button"
         onClick={() => {
@@ -127,14 +127,13 @@ function AuthorDropdown({
           setSearch('')
         }}
         className={clsx(
-          'w-full flex items-center gap-2.5 px-3 py-2',
-          'bg-bg-elevated rounded-md text-sm text-left',
-          'border transition-all duration-200 cursor-pointer',
+          'flex w-full items-center gap-3 rounded-[12px] border px-4 py-2.5 text-left transition-all duration-200 cursor-pointer',
+          'bg-[linear-gradient(180deg,rgba(23,23,27,0.94),rgba(15,15,18,0.88))]',
           error
-            ? 'border-danger focus:border-danger focus:shadow-[0_0_0_3px_rgba(217,48,54,0.1)]'
+            ? 'border-danger/45 focus:border-danger focus:shadow-[0_0_0_3px_rgba(255,140,140,0.12)]'
             : isOpen
-              ? 'border-accent shadow-[0_0_0_3px_var(--color-accent-muted)]'
-              : 'border-border-primary hover:border-border-secondary',
+              ? 'border-white/18 shadow-[0_0_0_3px_rgba(255,255,255,0.05)]'
+              : 'border-white/10 hover:border-white/16',
           'focus:outline-none'
         )}
       >
@@ -145,10 +144,16 @@ function AuthorDropdown({
               name={selectedAuthor.name}
               size="sm"
             />
-            <span className="flex-1 text-text-primary truncate">{selectedAuthor.name}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-text-primary">{selectedAuthor.name}</p>
+              <p className="mt-1 truncate text-xs text-text-tertiary">{selectedAuthor.role}</p>
+            </div>
           </>
         ) : (
-          <span className="flex-1 text-text-tertiary">Select an author...</span>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-text-primary">Select an author</p>
+            <p className="mt-1 text-xs text-text-tertiary">Search by name or slug</p>
+          </div>
         )}
         <ChevronDown
           size={16}
@@ -159,23 +164,21 @@ function AuthorDropdown({
         />
       </button>
 
-      {/* Dropdown panel */}
       {isOpen && (
         <div
           className={clsx(
-            'absolute z-30 top-full left-0 right-0 mt-1',
-            'bg-bg-elevated rounded-lg shadow-lg',
-            'border border-border-primary',
+            'absolute z-30 top-full left-0 right-0 mt-2',
+            'bg-[linear-gradient(180deg,rgba(26,26,30,0.98),rgba(12,12,14,0.98))] rounded-[18px] shadow-[0_24px_70px_rgba(3,7,18,0.38)]',
+            'border border-white/10',
             'overflow-hidden',
             'animate-scale-in'
           )}
         >
-          {/* Search within dropdown */}
-          <div className="p-2 border-b border-border-primary">
+          <div className="p-3 border-b border-white/8">
             <div className="relative">
               <Search
                 size={14}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary"
               />
               <input
                 ref={searchInputRef}
@@ -184,10 +187,10 @@ function AuthorDropdown({
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search authors..."
                 className={clsx(
-                  'w-full pl-8 pr-3 py-1.5',
-                  'text-xs bg-bg-secondary rounded-md',
-                  'border border-border-primary',
-                  'focus:outline-none focus:border-accent',
+                  'w-full pl-10 pr-4 py-2.5',
+                  'text-sm bg-white/[0.04] rounded-[12px]',
+                  'border border-white/10',
+                  'focus:outline-none focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)]',
                   'placeholder:text-text-tertiary',
                   'transition-all duration-150'
                 )}
@@ -195,10 +198,9 @@ function AuthorDropdown({
             </div>
           </div>
 
-          {/* Options list */}
-          <div className="max-h-52 overflow-y-auto py-1">
+          <div className="max-h-60 overflow-y-auto p-2">
             {filtered.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-text-tertiary">
+              <div className="px-3 py-6 text-center text-xs text-text-tertiary">
                 No authors found
               </div>
             ) : (
@@ -214,12 +216,12 @@ function AuthorDropdown({
                       setSearch('')
                     }}
                     className={clsx(
-                      'w-full flex items-center gap-2.5 px-3 py-2',
+                      'w-full flex items-center gap-3 px-3 py-3 rounded-2xl',
                       'text-left text-sm cursor-pointer',
                       'transition-colors duration-100',
                       isSelected
                         ? 'bg-accent-muted text-accent'
-                        : 'text-text-primary hover:bg-bg-hover'
+                        : 'text-text-primary hover:bg-white/[0.05]'
                     )}
                   >
                     <AuthorAvatar
@@ -335,7 +337,7 @@ export default function EditBlogPage(): React.JSX.Element {
   // AI modal state
   const [aiModalOpen, setAiModalOpen] = useState(false)
   const [aiGenerating, setAiGenerating] = useState(false)
-  const [aiOutput, setAiOutput] = useState<string[]>([])
+  const [, setAiOutput] = useState<string[]>([])
   const [aiResult, setAiResult] = useState<'success' | 'error' | null>(null)
 
   // Claude setup dialog state
@@ -345,7 +347,7 @@ export default function EditBlogPage(): React.JSX.Element {
 
   // Unsaved changes tracking
   const [originalContent, setOriginalContent] = useState('')
-  const [isDirty, setIsDirty] = useState(false)
+  const [, setIsDirty] = useState(false)
   const [confirmAIOpen, setConfirmAIOpen] = useState(false)
   const editorInitializedRef = useRef(false)
 
@@ -669,132 +671,95 @@ export default function EditBlogPage(): React.JSX.Element {
   /* ─── Loading state ─── */
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 animate-fade-in">
-        <Spinner size="lg" />
-        <p className="text-sm text-text-secondary">Loading blog data...</p>
-      </div>
+      <PageScaffold>
+        <SurfaceCard className="flex min-h-[24rem] flex-col items-center justify-center">
+          <Spinner size="lg" className="text-cyan" />
+          <p className="mt-4 text-sm text-text-secondary">Loading blog data...</p>
+        </SurfaceCard>
+      </PageScaffold>
     )
   }
 
   /* ─── Blog not found ─── */
   if (!blogsLoading && !blog) {
     return (
-      <div className="p-8 animate-fade-in">
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard/blogs')}
-          className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors mb-6 cursor-pointer"
-        >
-          <ArrowLeft size={16} />
-          Back to Blog Posts
-        </button>
-
-        <div className="max-w-2xl">
-          <div className="bg-danger-muted border border-danger/20 rounded-lg p-8 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-danger/10 mb-4">
-              <X size={28} className="text-danger" />
+      <PageScaffold>
+        <div className="space-y-8">
+          <Button variant="ghost" size="md" icon={ArrowLeft} onClick={() => navigate('/dashboard/blogs')}>
+            Back to Blog Posts
+          </Button>
+          <SurfaceCard className="max-w-3xl px-8 py-10 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[16px] border border-danger/20 bg-danger-muted text-danger">
+              <X size={30} strokeWidth={1.9} />
             </div>
-            <h2 className="text-lg font-semibold text-text-primary mb-1">Blog post not found</h2>
-            <p className="text-sm text-text-secondary">
+            <h2 className="mt-5 font-display text-4xl text-text-primary">Blog post not found</h2>
+            <p className="mt-3 text-sm leading-7 text-text-secondary">
               No blog post with slug &ldquo;{slug}&rdquo; could be found.
             </p>
-          </div>
+          </SurfaceCard>
         </div>
-      </div>
+      </PageScaffold>
     )
   }
 
   /* ─── Success state ─── */
   if (submitResult === 'success') {
     return (
-      <div className="p-8 animate-fade-in">
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard/blogs')}
-          className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors mb-6 cursor-pointer"
-        >
-          <ArrowLeft size={16} />
-          Back to Blog Posts
-        </button>
-
-        <div className="max-w-2xl">
-          <div className="bg-success-muted border border-success/20 rounded-lg p-8 text-center mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-success/10 mb-4">
-              <Check size={28} className="text-success" />
+      <PageScaffold>
+        <div className="space-y-8">
+          <Button variant="ghost" size="md" icon={ArrowLeft} onClick={() => navigate('/dashboard/blogs')}>
+            Back to Blog Posts
+          </Button>
+          <SurfaceCard className="max-w-3xl px-8 py-10 text-center" highlight>
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[16px] border border-success/20 bg-success-muted text-success">
+              <Check size={30} strokeWidth={1.9} />
             </div>
-            <h2 className="text-lg font-semibold text-text-primary mb-1">Blog post updated!</h2>
-            <p className="text-sm text-text-secondary">
+            <h2 className="mt-5 font-display text-4xl text-text-primary">Blog post updated</h2>
+            <p className="mt-3 text-sm leading-7 text-text-secondary">
               &ldquo;{title}&rdquo; has been saved successfully.
             </p>
-          </div>
-
-          {/* CLI output */}
-          {cliOutput.length > 0 && (
-            <div className="mb-6">
-              <TerminalOutput lines={cliOutput} title="CLI Output" />
+            {cliOutput.length > 0 && <div className="mt-8"><TerminalOutput lines={cliOutput} title="Save Output" /></div>}
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Button
+                variant="primary"
+                icon={Save}
+                onClick={() => {
+                  setSubmitResult(null)
+                  setCliOutput([])
+                }}
+              >
+                Continue Editing
+              </Button>
+              <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/dashboard/blogs')}>
+                Back to Blogs
+              </Button>
             </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="primary"
-              icon={Save}
-              onClick={() => {
-                setSubmitResult(null)
-                setCliOutput([])
-              }}
-            >
-              Continue Editing
-            </Button>
-            <Button
-              variant="secondary"
-              icon={ArrowLeft}
-              onClick={() => navigate('/dashboard/blogs')}
-            >
-              Back to Blogs
-            </Button>
-          </div>
+          </SurfaceCard>
         </div>
-      </div>
+      </PageScaffold>
     )
   }
 
   return (
-    <div className="p-8 animate-fade-in">
-      {/* Back link */}
-      <button
-        type="button"
-        onClick={() => navigate('/dashboard/blogs')}
-        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors mb-6 cursor-pointer"
-      >
-        <ArrowLeft size={16} />
-        Back to Blog Posts
-      </button>
-
-      {/* Page title */}
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
-            Edit Blog Post
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Editing <span className="font-mono text-text-tertiary">{slug}</span>
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          size="md"
-          icon={Sparkles}
-          onClick={handleWriteWithAI}
-          disabled={submitting || contentLoading}
-        >
-          Write with AI
+    <PageScaffold wide>
+      <div className="space-y-8">
+        <Button variant="ghost" size="md" icon={ArrowLeft} onClick={() => navigate('/dashboard/blogs')}>
+          Back to Blog Posts
         </Button>
-      </div>
 
-      <div className="max-w-2xl space-y-6">
+        <PageIntro
+          eyebrow="Edit Story"
+          title="Refine the draft, then ship it clean."
+          description="Update metadata, work directly in the markdown editor, and optionally use AI generation once the post is in a good baseline state."
+          meta={<InfoPill>{slug}</InfoPill>}
+          actions={
+            <Button variant="primary" size="md" icon={Sparkles} onClick={handleWriteWithAI} disabled={submitting || contentLoading}>
+              Write with AI
+            </Button>
+          }
+        />
+
+        <SurfaceCard className="max-w-5xl space-y-6 p-6 sm:p-8" highlight>
         {/* Title */}
         <FormField label="Title" required error={errors.title}>
           <Input
@@ -812,9 +777,8 @@ export default function EditBlogPage(): React.JSX.Element {
         <FormField label="Slug" helperText="The slug cannot be changed after creation.">
           <div
             className={clsx(
-              'w-full px-3 py-2',
-              'bg-bg-secondary rounded-md text-sm',
-              'border border-border-primary',
+              'w-full rounded-[12px] border border-white/10 px-4 py-2.5 text-sm',
+              'bg-[linear-gradient(180deg,rgba(22,22,26,0.94),rgba(14,14,18,0.9))]',
               'text-text-tertiary font-mono',
               'select-all cursor-default'
             )}
@@ -834,14 +798,13 @@ export default function EditBlogPage(): React.JSX.Element {
             placeholder="A brief summary of the blog post..."
             rows={3}
             className={clsx(
-              'w-full bg-bg-elevated text-text-primary rounded-md font-sans',
-              'border px-3 py-2 text-sm leading-relaxed',
+              'min-h-[110px] w-full resize-y rounded-[12px] border px-4 py-3 text-sm leading-7',
+              'bg-[linear-gradient(180deg,rgba(22,22,26,0.94),rgba(14,14,18,0.9))] text-text-primary font-sans',
               'transition-all duration-200',
               'placeholder:text-text-tertiary',
-              'resize-y min-h-[80px]',
               errors.description
-                ? 'border-danger focus:border-danger focus:shadow-[0_0_0_3px_rgba(217,48,54,0.1)]'
-                : 'border-border-primary hover:border-border-secondary focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
+                ? 'border-danger/45 focus:border-danger focus:shadow-[0_0_0_3px_rgba(255,140,140,0.12)]'
+                : 'border-white/10 hover:border-white/16 focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)]',
               'focus:outline-none'
             )}
           />
@@ -907,8 +870,7 @@ export default function EditBlogPage(): React.JSX.Element {
           />
         </FormField>
 
-        {/* Featured */}
-        <div className="flex items-center justify-between py-2">
+        <div className="flex items-center justify-between rounded-[14px] border border-white/8 bg-white/[0.03] px-4 py-3.5">
           <div>
             <p className="text-sm font-medium text-text-primary">Featured Post</p>
             <p className="text-xs text-text-tertiary mt-0.5">
@@ -918,8 +880,7 @@ export default function EditBlogPage(): React.JSX.Element {
           <Toggle checked={featured} onChange={setFeatured} />
         </div>
 
-        {/* Unlisted */}
-        <div className="flex items-center justify-between py-2">
+        <div className="flex items-center justify-between rounded-[14px] border border-white/8 bg-white/[0.03] px-4 py-3.5">
           <div>
             <p className="text-sm font-medium text-text-primary">Unlisted</p>
             <p className="text-xs text-text-tertiary mt-0.5">
@@ -929,17 +890,16 @@ export default function EditBlogPage(): React.JSX.Element {
           <Toggle checked={unlisted} onChange={setUnlisted} />
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-border-primary" />
+        <div className="elevated-divider" />
 
         {/* Cover Image */}
         <FormField label="Cover Image" helperText="Optional. Select a cover image for the blog post.">
           {coverPath ? (
-            <div className="relative rounded-lg overflow-hidden border border-border-primary bg-bg-secondary">
+            <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.03]">
               <img
                 src={`file://${coverPath}`}
                 alt="Cover preview"
-                className="w-full h-40 object-cover"
+                className="h-52 w-full object-cover"
                 onError={(e) => {
                   ;(e.target as HTMLImageElement).style.display = 'none'
                 }}
@@ -949,10 +909,10 @@ export default function EditBlogPage(): React.JSX.Element {
                   type="button"
                   onClick={() => setCoverPath('')}
                   className={clsx(
-                    'p-1.5 rounded-md',
-                    'bg-bg-elevated/90 backdrop-blur-sm',
+                    'p-2 rounded-2xl',
+                    'bg-[#08111f]/90 backdrop-blur-sm',
                     'text-text-secondary hover:text-danger',
-                    'border border-border-primary',
+                    'border border-white/10',
                     'transition-colors duration-150 cursor-pointer'
                   )}
                   title="Remove cover image"
@@ -960,7 +920,7 @@ export default function EditBlogPage(): React.JSX.Element {
                   <X size={14} />
                 </button>
               </div>
-              <div className="px-3 py-2 text-xs text-text-tertiary truncate border-t border-border-primary">
+              <div className="truncate border-t border-white/8 px-4 py-3 text-xs text-text-tertiary">
                 {coverPath.split('/').pop()}
               </div>
             </div>
@@ -975,22 +935,21 @@ export default function EditBlogPage(): React.JSX.Element {
           )}
         </FormField>
 
-        {/* Divider */}
-        <div className="border-t border-border-primary" />
+        <div className="elevated-divider" />
 
-        {/* Content Editor */}
         <div>
-          <h2 className="text-lg font-semibold text-text-primary mb-1">Content</h2>
-          <p className="text-xs text-text-tertiary mb-4">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">Content</p>
+          <h2 className="mt-2 font-display text-3xl text-text-primary">Editor</h2>
+          <p className="mt-2 mb-4 text-sm leading-7 text-text-secondary">
             Edit the blog post content below. Use the toolbar to format text, or switch to source mode for raw markdown.
           </p>
           {contentLoading ? (
-            <div className="flex items-center justify-center py-12 bg-bg-elevated rounded-lg border border-border-primary">
-              <Spinner size="md" />
+            <div className="flex items-center justify-center rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,28,0.94),rgba(15,15,18,0.9))] py-12">
+              <Spinner size="md" className="text-cyan" />
               <span className="ml-3 text-sm text-text-secondary">Loading content...</span>
             </div>
           ) : (
-            <div className="mdxeditor-wrapper rounded-lg border border-border-primary overflow-hidden [&_.mdxeditor]:bg-bg-elevated [&_.mdxeditor-toolbar]:bg-bg-secondary [&_.mdxeditor-toolbar]:border-b [&_.mdxeditor-toolbar]:border-border-primary [&_.mdxeditor-root-contenteditable]:min-h-[400px] [&_.mdxeditor-root-contenteditable]:px-4 [&_.mdxeditor-root-contenteditable]:py-3 [&_.mdxeditor-root-contenteditable]:text-text-primary [&_.mdxeditor-root-contenteditable>*]:text-text-primary [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h4]:text-base [&_h4]:font-medium [&_h4]:mt-3 [&_h4]:mb-1 [&_p]:leading-relaxed [&_p]:mb-3 [&_img]:rounded-lg [&_img]:my-4 [&_img]:max-w-full [&_blockquote]:border-l-4 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-text-secondary [&_code]:bg-bg-secondary [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&_pre]:bg-bg-secondary [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_table]:w-full [&_table]:border-collapse [&_th]:bg-bg-secondary [&_th]:border [&_th]:border-border-primary [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_td]:border [&_td]:border-border-primary [&_td]:px-3 [&_td]:py-2 [&_hr]:border-border-primary [&_hr]:my-6 [&_a]:text-accent [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-3 [&_li]:mb-1">
+            <div className="mdxeditor-wrapper overflow-hidden rounded-[18px] border border-white/10 [&_.mdxeditor]:bg-transparent [&_.mdxeditor-toolbar]:bg-transparent [&_.mdxeditor-toolbar]:border-b [&_.mdxeditor-toolbar]:border-border-primary [&_.mdxeditor-root-contenteditable]:min-h-[400px] [&_.mdxeditor-root-contenteditable]:px-4 [&_.mdxeditor-root-contenteditable]:py-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-6 [&_h1]:mb-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-5 [&_h2]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h4]:text-base [&_h4]:font-medium [&_h4]:mt-3 [&_h4]:mb-1 [&_p]:leading-relaxed [&_p]:mb-3 [&_img]:rounded-lg [&_img]:my-4 [&_img]:max-w-full [&_blockquote]:border-l-4 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-text-secondary [&_code]:bg-bg-secondary [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&_pre]:bg-bg-secondary [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_table]:w-full [&_table]:border-collapse [&_th]:bg-bg-secondary [&_th]:border [&_th]:border-border-primary [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_td]:border [&_td]:border-border-primary [&_td]:px-3 [&_td]:py-2 [&_hr]:border-border-primary [&_hr]:my-6 [&_a]:text-accent [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-3 [&_li]:mb-1">
               <MDXEditor
                 ref={editorRef}
                 markdown={markdocContent}
@@ -1091,15 +1050,14 @@ export default function EditBlogPage(): React.JSX.Element {
 
         {/* Error state after submission */}
         {submitResult === 'error' && (
-          <div className="bg-danger-muted border border-danger/20 rounded-lg p-4">
+          <div className="rounded-[16px] border border-danger/20 bg-danger-muted p-4">
             <p className="text-sm text-danger font-medium">Failed to update blog post</p>
-            <p className="text-xs text-text-secondary mt-1">
+            <p className="mt-1 text-sm leading-7 text-text-secondary">
               Check the CLI output above for details, or try again.
             </p>
           </div>
         )}
 
-        {/* Save / Cancel */}
         <div className="flex items-center gap-3 pt-2 pb-4">
           <Button
             variant="primary"
@@ -1120,9 +1078,8 @@ export default function EditBlogPage(): React.JSX.Element {
             Cancel
           </Button>
         </div>
-      </div>
+        </SurfaceCard>
 
-      {/* Unsaved changes confirmation for AI */}
       <ConfirmDialog
         open={confirmAIOpen}
         onClose={() => setConfirmAIOpen(false)}
@@ -1133,7 +1090,6 @@ export default function EditBlogPage(): React.JSX.Element {
         variant="danger"
       />
 
-      {/* Write with AI modal */}
       <WriteWithAIModal
         open={aiModalOpen}
         onClose={() => {
@@ -1147,13 +1103,13 @@ export default function EditBlogPage(): React.JSX.Element {
         result={aiResult}
       />
 
-      {/* Claude Code setup dialog */}
       <ClaudeSetupDialog
         open={setupDialogOpen}
         onClose={() => setSetupDialogOpen(false)}
         onComplete={handleSetupComplete}
         reason={setupReason}
       />
-    </div>
+      </div>
+    </PageScaffold>
   )
 }

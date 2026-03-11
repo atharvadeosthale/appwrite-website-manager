@@ -1,11 +1,12 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Users, UserPlus, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Users, UserPlus, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { AuthorForm } from '../components/forms/AuthorForm'
 import { TerminalOutput } from '../components/shared/TerminalOutput'
 import { Button } from '../components/ui/Button'
 import { useToast } from '../components/ui/Toast'
 import { useAuthors } from '../hooks/useAuthors'
+import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import type { CreateAuthorOptions } from '../types'
 
 type PageState = 'form' | 'running' | 'success' | 'error'
@@ -14,7 +15,7 @@ export default function CreateAuthorPage(): React.JSX.Element {
   const navigate = useNavigate()
   const toast = useToast()
   const { authors } = useAuthors()
-  const existingSlugs = useMemo(() => authors.map((a) => a.slug), [authors])
+  const existingSlugs = useMemo(() => authors.map((author) => author.slug), [authors])
 
   const [pageState, setPageState] = useState<PageState>('form')
   const [cliOutput, setCliOutput] = useState<string[]>([])
@@ -27,15 +28,12 @@ export default function CreateAuthorPage(): React.JSX.Element {
       setCliOutput([])
       setCreatedName(options.name)
 
-      // Set up streaming output listener
       window.api.onCliOutput((data: string) => {
         setCliOutput((prev) => [...prev, data])
       })
 
       try {
         const result = await window.api.createAuthor(options)
-
-        // Clean up the listener
         window.api.removeCliOutputListener()
 
         if (result.success) {
@@ -46,9 +44,7 @@ export default function CreateAuthorPage(): React.JSX.Element {
           toast.error(result.error ?? 'Something went wrong while creating the author.')
         }
       } catch (err) {
-        // Clean up the listener
         window.api.removeCliOutputListener()
-
         setPageState('error')
         toast.error(err instanceof Error ? err.message : 'An unexpected error occurred.')
       }
@@ -60,7 +56,7 @@ export default function CreateAuthorPage(): React.JSX.Element {
     setPageState('form')
     setCliOutput([])
     setCreatedName('')
-    setFormKey((k) => k + 1) // remount form to reset state
+    setFormKey((key) => key + 1)
   }, [])
 
   const handleTryAgain = useCallback(() => {
@@ -69,115 +65,79 @@ export default function CreateAuthorPage(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="p-8 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={ArrowLeft}
-          onClick={() => navigate('/dashboard/authors')}
-          aria-label="Back to authors"
-        />
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
-            Create Author
-          </h1>
-          <p className="mt-0.5 text-sm text-text-secondary leading-relaxed">
-            Add a new author to your website.
-          </p>
+    <PageScaffold>
+      <div className="space-y-8">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="md" icon={ArrowLeft} onClick={() => navigate('/dashboard/authors')}>
+            Back to Authors
+          </Button>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-2xl">
-        {/* Form State */}
+        <PageIntro
+          eyebrow="Author Studio"
+          title="Create a byline that feels first-class."
+          description="Add the metadata, avatar, and social links that turn a simple author record into a polished publishing profile."
+          meta={<InfoPill>{existingSlugs.length} existing authors indexed</InfoPill>}
+        />
+
         {(pageState === 'form' || pageState === 'running') && (
-          <div className="bg-bg-elevated rounded-xl border border-border-primary shadow-sm p-6 sm:p-8">
-            <AuthorForm
-              key={formKey}
-              onSubmit={handleSubmit}
-              loading={pageState === 'running'}
-              existingSlugs={existingSlugs}
-            />
-          </div>
+          <SurfaceCard className="max-w-4xl p-0 overflow-hidden" highlight>
+            <div className="border-b border-white/8 px-6 py-5">
+              <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Author details</p>
+              <h2 className="mt-2 font-display text-2xl text-text-primary">Profile information</h2>
+            </div>
+            <div className="px-6 py-6 sm:px-8 sm:py-8">
+              <AuthorForm key={formKey} onSubmit={handleSubmit} loading={pageState === 'running'} existingSlugs={existingSlugs} />
+            </div>
+          </SurfaceCard>
         )}
 
-        {/* Terminal output — shown while running or after completion */}
         {cliOutput.length > 0 && (
-          <div className="mt-6 animate-fade-in">
-            <TerminalOutput
-              lines={cliOutput}
-              title="CLI Output"
-            />
+          <div className="max-w-4xl">
+            <TerminalOutput lines={cliOutput} title="Author generation" />
           </div>
         )}
 
-        {/* Success State */}
         {pageState === 'success' && (
-          <div className="mt-6 animate-fade-in">
-            <div className="bg-bg-elevated rounded-xl border border-border-primary shadow-sm p-8 text-center">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-success-muted mb-5">
-                <CheckCircle2 size={28} className="text-success" />
-              </div>
-              <h2 className="text-lg font-semibold text-text-primary mb-1">
-                Author created!
-              </h2>
-              <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto leading-relaxed">
-                <strong>{createdName}</strong> has been added successfully. You can create another author or view your full team.
-              </p>
-              <div className="flex items-center justify-center gap-3">
-                <Button
-                  variant="secondary"
-                  icon={Users}
-                  onClick={() => navigate('/dashboard/authors')}
-                >
-                  View Authors
-                </Button>
-                <Button
-                  variant="primary"
-                  icon={UserPlus}
-                  onClick={handleCreateAnother}
-                >
-                  Create Another
-                </Button>
-              </div>
+          <SurfaceCard className="max-w-3xl px-8 py-10 text-center" highlight>
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[16px] border border-success/20 bg-success-muted text-success">
+              <CheckCircle2 size={30} strokeWidth={1.8} />
             </div>
-          </div>
+            <h2 className="mt-5 font-display text-4xl text-text-primary">Author created</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-text-secondary">
+              <strong>{createdName}</strong> is now available across the content system. Create another profile or head back to the team index.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Button variant="secondary" icon={Users} onClick={() => navigate('/dashboard/authors')}>
+                View Authors
+              </Button>
+              <Button variant="primary" icon={UserPlus} onClick={handleCreateAnother}>
+                Create Another
+              </Button>
+            </div>
+          </SurfaceCard>
         )}
 
-        {/* Error State */}
         {pageState === 'error' && (
-          <div className="mt-6 animate-fade-in">
-            <div className="bg-bg-elevated rounded-xl border border-border-primary shadow-sm p-8 text-center">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-danger-muted mb-5">
-                <span className="text-2xl">&#9888;</span>
-              </div>
-              <h2 className="text-lg font-semibold text-text-primary mb-1">
-                Something went wrong
-              </h2>
-              <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto leading-relaxed">
-                The author could not be created. Check the output above for details, then try again.
-              </p>
-              <div className="flex items-center justify-center gap-3">
-                <Button
-                  variant="secondary"
-                  icon={ArrowLeft}
-                  onClick={() => navigate('/dashboard/authors')}
-                >
-                  Back to Authors
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleTryAgain}
-                >
-                  Try Again
-                </Button>
-              </div>
+          <SurfaceCard className="max-w-3xl px-8 py-10 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[16px] border border-danger/20 bg-danger-muted text-danger">
+              <AlertTriangle size={30} strokeWidth={1.8} />
             </div>
-          </div>
+            <h2 className="mt-5 font-display text-4xl text-text-primary">Creation failed</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-text-secondary">
+              The author profile could not be generated. Inspect the command output above, then retry with corrected input.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/dashboard/authors')}>
+                Back to Authors
+              </Button>
+              <Button variant="primary" onClick={handleTryAgain}>
+                Try Again
+              </Button>
+            </div>
+          </SurfaceCard>
         )}
       </div>
-    </div>
+    </PageScaffold>
   )
 }

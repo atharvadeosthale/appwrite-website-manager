@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useCallback,
@@ -9,8 +10,6 @@ import {
 } from 'react'
 import clsx from 'clsx'
 import { X, CheckCircle2, AlertCircle, AlertTriangle, Info } from 'lucide-react'
-
-/* ─── Types ─── */
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -29,11 +28,7 @@ interface ToastContextValue {
   info: (message: string, duration?: number) => void
 }
 
-/* ─── Context ─── */
-
 const ToastContext = createContext<ToastContextValue | null>(null)
-
-/* ─── Hook ─── */
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext)
@@ -43,47 +38,30 @@ export function useToast(): ToastContextValue {
   return ctx
 }
 
-/* ─── Toast visual config ─── */
-
-const typeConfig: Record<
-  ToastType,
-  { icon: typeof CheckCircle2; bg: string; iconColor: string; border: string }
-> = {
+const typeConfig: Record<ToastType, { icon: typeof CheckCircle2; tint: string; iconColor: string }> = {
   success: {
     icon: CheckCircle2,
-    bg: 'bg-bg-elevated',
-    iconColor: 'text-success',
-    border: 'border-l-success'
+    tint: 'from-success/18 to-success/4',
+    iconColor: 'text-success'
   },
   error: {
     icon: AlertCircle,
-    bg: 'bg-bg-elevated',
-    iconColor: 'text-danger',
-    border: 'border-l-danger'
+    tint: 'from-danger/20 to-danger/4',
+    iconColor: 'text-danger'
   },
   warning: {
     icon: AlertTriangle,
-    bg: 'bg-bg-elevated',
-    iconColor: 'text-warning',
-    border: 'border-l-warning'
+    tint: 'from-warning/18 to-warning/4',
+    iconColor: 'text-warning'
   },
   info: {
     icon: Info,
-    bg: 'bg-bg-elevated',
-    iconColor: 'text-accent',
-    border: 'border-l-accent'
+    tint: 'from-white/10 to-white/0',
+    iconColor: 'text-text-primary'
   }
 }
 
-/* ─── Single Toast Item ─── */
-
-function ToastItem({
-  toast,
-  onDismiss
-}: {
-  toast: Toast
-  onDismiss: (id: string) => void
-}): React.JSX.Element {
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }): React.JSX.Element {
   const [isExiting, setIsExiting] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const config = typeConfig[toast.type]
@@ -91,11 +69,11 @@ function ToastItem({
 
   const dismiss = useCallback(() => {
     setIsExiting(true)
-    setTimeout(() => onDismiss(toast.id), 200)
+    setTimeout(() => onDismiss(toast.id), 180)
   }, [onDismiss, toast.id])
 
   useEffect(() => {
-    const duration = toast.duration ?? 4000
+    const duration = toast.duration ?? 4200
     timerRef.current = setTimeout(dismiss, duration)
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
@@ -106,36 +84,29 @@ function ToastItem({
     <div
       role="alert"
       className={clsx(
-        'flex items-start gap-3 w-80',
-        'px-4 py-3',
-        'rounded-md shadow-lg',
-        'border border-border-primary border-l-[3px]',
-        config.bg,
-        config.border,
-        'transition-all duration-200',
-        isExiting
-          ? 'opacity-0 translate-x-4 scale-95'
-          : 'opacity-100 translate-x-0 scale-100 animate-slide-in-right'
+        'relative flex w-[22rem] items-start gap-3 overflow-hidden rounded-[16px] border border-white/10',
+        'bg-gradient-to-br from-bg-secondary/95 to-bg-primary/95 px-4 py-4 shadow-[0_30px_70px_rgba(3,7,18,0.45)] backdrop-blur-2xl',
+        isExiting ? 'translate-x-5 scale-95 opacity-0' : 'animate-slide-in-right opacity-100',
+        'transition-all duration-200'
       )}
       onMouseEnter={() => {
         if (timerRef.current) clearTimeout(timerRef.current)
       }}
       onMouseLeave={() => {
-        const duration = toast.duration ?? 4000
+        const duration = toast.duration ?? 4200
         timerRef.current = setTimeout(dismiss, duration)
       }}
     >
-      <Icon size={18} className={clsx('shrink-0 mt-0.5', config.iconColor)} />
-      <p className="flex-1 text-sm text-text-primary leading-relaxed">{toast.message}</p>
+      <div className={clsx('pointer-events-none absolute inset-0 bg-gradient-to-br opacity-90', config.tint)} />
+      <div className="relative z-10 mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05]">
+        <Icon size={18} className={config.iconColor} strokeWidth={1.9} />
+      </div>
+      <div className="relative z-10 flex-1">
+        <p className="text-sm leading-6 text-text-primary">{toast.message}</p>
+      </div>
       <button
         onClick={dismiss}
-        className={clsx(
-          'shrink-0 p-0.5 rounded-sm',
-          'text-text-tertiary hover:text-text-secondary',
-          'hover:bg-bg-hover',
-          'transition-colors duration-150',
-          'cursor-pointer'
-        )}
+        className="relative z-10 rounded-xl p-1.5 text-text-tertiary transition-colors duration-150 hover:bg-white/[0.05] hover:text-text-primary"
         aria-label="Dismiss notification"
       >
         <X size={14} />
@@ -143,8 +114,6 @@ function ToastItem({
     </div>
   )
 }
-
-/* ─── Provider ─── */
 
 let toastCounter = 0
 
@@ -157,7 +126,7 @@ export function ToastProvider({ children }: { children: ReactNode }): React.JSX.
   }, [])
 
   const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
+    setToasts((prev) => prev.filter((toast) => toast.id !== id))
   }, [])
 
   const value: ToastContextValue = {
@@ -171,14 +140,9 @@ export function ToastProvider({ children }: { children: ReactNode }): React.JSX.
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {/* Toast container — fixed bottom-right */}
-      <div
-        aria-live="polite"
-        aria-label="Notifications"
-        className="fixed bottom-5 right-5 z-50 flex flex-col-reverse gap-2.5"
-      >
-        {toasts.map((t) => (
-          <ToastItem key={t.id} toast={t} onDismiss={removeToast} />
+      <div aria-live="polite" aria-label="Notifications" className="fixed bottom-5 right-5 z-50 flex flex-col-reverse gap-3">
+        {toasts.map((toast) => (
+          <ToastItem key={toast.id} toast={toast} onDismiss={removeToast} />
         ))}
       </div>
     </ToastContext.Provider>
