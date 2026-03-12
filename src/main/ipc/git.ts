@@ -14,6 +14,21 @@ function execGit(command: string, cwd: string): string {
   return execSync(command, { cwd, encoding: 'utf-8' }).trim()
 }
 
+function findOpenPrUrlForBranch(cwd: string, branch: string): string | null {
+  try {
+    const escapedBranch = branch.replace(/"/g, '\\"')
+    const output = execGit(
+      `gh pr list --head "${escapedBranch}" --state open --json url --limit 1`,
+      cwd
+    )
+    const pullRequests = JSON.parse(output || '[]') as Array<{ url?: string }>
+    const url = pullRequests[0]?.url?.trim()
+    return url || null
+  } catch {
+    return null
+  }
+}
+
 export function registerGitHandlers(): void {
   ipcMain.handle('git:branch', async () => {
     const cwd = getRepoPath()
@@ -94,7 +109,11 @@ export function registerGitHandlers(): void {
       const currentBranch = execGit('git rev-parse --abbrev-ref HEAD', cwd)
 
       // Stash any tracked changes (ignore error if nothing to stash)
-      try { execGit('git stash --include-untracked', cwd) } catch { /* nothing to stash */ }
+      try {
+        execGit('git stash --include-untracked', cwd)
+      } catch {
+        /* nothing to stash */
+      }
 
       // If not on main, switch to main
       if (currentBranch !== 'main') {
@@ -109,7 +128,11 @@ export function registerGitHandlers(): void {
       execGit('git pull origin main', cwd)
 
       // Drop the stash we just made (don't care if it fails)
-      try { execGit('git stash drop', cwd) } catch { /* no stash */ }
+      try {
+        execGit('git stash drop', cwd)
+      } catch {
+        /* no stash */
+      }
 
       return { success: true }
     } catch (err) {
@@ -138,25 +161,52 @@ export function registerGitHandlers(): void {
     }
   })
 
-  ipcMain.handle('git:create-pr', async (_event, { title, body }: { title: string; body: string }) => {
+  ipcMain.handle('git:branch-pr', async () => {
     const cwd = getRepoPath()
     try {
-      // Push current branch to remote first
       const branch = execGit('git rev-parse --abbrev-ref HEAD', cwd)
-      execGit(`git push -u origin ${branch}`, cwd)
+      if (!branch || branch === 'main') {
+        return { hasPr: false }
+      }
 
-      const escapedTitle = title.replace(/"/g, '\\"')
-      const escapedBody = body.replace(/"/g, '\\"')
-      const output = execSync(
-        `gh pr create --title "${escapedTitle}" --body "${escapedBody}"`,
-        { cwd, encoding: 'utf-8' }
-      ).trim()
-      // gh pr create outputs the PR URL as the last line
-      const lines = output.split('\n')
-      const url = lines[lines.length - 1].trim()
-      return { success: true, url }
+      const existingPrUrl = findOpenPrUrlForBranch(cwd, branch)
+      if (existingPrUrl) {
+        return { hasPr: true, url: existingPrUrl }
+      }
+
+      return { hasPr: false }
     } catch (err) {
-      return { success: false, error: (err as Error).message }
+      return { hasPr: false, error: (err as Error).message }
     }
   })
+
+  ipcMain.handle(
+    'git:create-pr',
+    async (_event, { title, body }: { title: string; body: string }) => {
+      const cwd = getRepoPath()
+      try {
+        // Push current branch to remote first
+        const branch = execGit('git rev-parse --abbrev-ref HEAD', cwd)
+        execGit(`git push -u origin ${branch}`, cwd)
+
+        const existingPrUrl = findOpenPrUrlForBranch(cwd, branch)
+        if (existingPrUrl) {
+          return { success: true, url: existingPrUrl, existing: true }
+        }
+
+        const escapedTitle = title.replace(/"/g, '\\"')
+        const escapedBody = body.replace(/"/g, '\\"')
+        const output = execSync(`gh pr create --title "${escapedTitle}" --body "${escapedBody}"`, {
+          cwd,
+          encoding: 'utf-8'
+        }).trim()
+        // gh pr create outputs the PR URL as the last line
+        const lines = output.split('\n')
+        const url = lines[lines.length - 1].trim()
+        return { success: true, url, existing: false }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
+      }
+    }
+  )
 }

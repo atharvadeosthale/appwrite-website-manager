@@ -12,7 +12,8 @@ import {
   RefreshCw,
   ArrowRight,
   Download,
-  X
+  X,
+  Bot
 } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -30,14 +31,16 @@ const TOOL_META: Record<
   git: { label: 'Git', description: 'Version control system', icon: GitBranch },
   node: { label: 'Node.js', description: 'JavaScript runtime', icon: Box },
   bun: { label: 'Bun', description: 'Fast JavaScript bundler & runtime', icon: Zap },
-  gh: { label: 'GitHub CLI', description: 'GitHub command-line tool', icon: Github }
+  gh: { label: 'GitHub CLI', description: 'GitHub command-line tool', icon: Github },
+  claude: { label: 'Claude Code', description: 'AI coding assistant CLI', icon: Bot }
 }
 
 const INSTALL_FNS: Record<PrerequisiteStatus['id'], () => Promise<InstallResult>> = {
   git: () => window.api.setupInstallGit(),
   node: () => window.api.setupInstallNode(),
   bun: () => window.api.setupInstallBun(),
-  gh: () => window.api.setupInstallGh()
+  gh: () => window.api.setupInstallGh(),
+  claude: () => window.api.setupInstallClaude()
 }
 
 /* ─── GhAuthPanel — shown inside gh card during authentication ─── */
@@ -406,7 +409,7 @@ export default function SetupWizardPage(): React.JSX.Element {
               Setting up the workspace
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary sm:text-base">
-              Install the local tooling stack, authenticate GitHub CLI if needed, and unlock the full website management workflow.
+              Install the local tooling stack, authenticate GitHub CLI if needed, set up Claude Code, and unlock the full website management workflow.
             </p>
           </div>
 

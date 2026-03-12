@@ -31,7 +31,11 @@ interface AppAPI {
   gitHardReset: () => Promise<{ success: boolean; error?: string }>
   gitStageAndCommit: (message: string) => Promise<{ success: boolean; error?: string }>
   gitCreateBranch: (name: string) => Promise<{ success: boolean; error?: string }>
-  gitCreatePr: (title: string, body: string) => Promise<{ success: boolean; url?: string; error?: string }>
+  gitBranchPr: () => Promise<{ hasPr: boolean; url?: string; error?: string }>
+  gitCreatePr: (
+    title: string,
+    body: string
+  ) => Promise<{ success: boolean; url?: string; existing?: boolean; error?: string }>
 
   // CLI - data queries
   getAuthors: () => Promise<Author[]>
@@ -74,6 +78,7 @@ interface AppAPI {
   setupInstallNode: () => Promise<InstallResult>
   setupInstallBun: () => Promise<InstallResult>
   setupInstallGh: () => Promise<InstallResult>
+  setupInstallClaude: () => Promise<InstallResult>
   setupInstallAll: () => Promise<InstallResult>
   setupAuthGh: () => Promise<InstallResult>
   setupCancelAuthGh: () => Promise<{ success: boolean }>

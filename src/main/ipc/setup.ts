@@ -5,7 +5,7 @@ import { join } from 'path'
 import { fixPath } from '../utils/fixPath'
 
 interface PrerequisiteStatus {
-  id: 'git' | 'node' | 'bun' | 'gh'
+  id: 'git' | 'node' | 'bun' | 'gh' | 'claude'
   installed: boolean
   version?: string
   authenticated?: boolean
@@ -245,6 +245,15 @@ export function registerSetupHandlers(): void {
       prerequisites.push({ id: 'gh', installed: false, authenticated: false })
     }
 
+    // claude
+    const claudeRaw = tryExecSync('claude -v')
+    if (claudeRaw) {
+      const version = parseVersion(claudeRaw)
+      prerequisites.push({ id: 'claude', installed: true, version })
+    } else {
+      prerequisites.push({ id: 'claude', installed: false })
+    }
+
     const allPassed =
       prerequisites.every((p) => p.installed) &&
       (prerequisites.find((p) => p.id === 'gh')?.authenticated === true)
@@ -391,12 +400,56 @@ export function registerSetupHandlers(): void {
     }
   })
 
+  ipcMain.handle('setup:install-claude', async (event) => {
+    try {
+      let result: { success: boolean; error?: string; output?: string }
+
+      if (process.platform === 'darwin' || process.platform === 'linux') {
+        result = await spawnWithStreaming(
+          'bash',
+          ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'],
+          event
+        )
+      } else if (process.platform === 'win32') {
+        event.sender.send('setup:output', 'Installing Claude Code via PowerShell...\n')
+        result = await spawnWithStreaming(
+          'powershell',
+          [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            'irm https://claude.ai/install.ps1 | iex'
+          ],
+          event
+        )
+
+        if (!result.success) {
+          event.sender.send('setup:output', 'PowerShell install failed, trying CMD installer...\n')
+          result = await spawnWithStreaming(
+            'cmd',
+            ['/c', 'curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd'],
+            event
+          )
+        }
+      } else {
+        return { success: false, error: `Unsupported platform: ${process.platform}` }
+      }
+
+      if (result.success) fixPath()
+      return result
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
   ipcMain.handle('setup:install-all', async (event) => {
     try {
       // 1. Check what's already installed
       const nodeInstalled = tryExecSync('node -v') !== null
       const bunInstalled = tryExecSync('bun -v') !== null
       const ghInstalled = tryExecSync('gh --version') !== null
+      const claudeInstalled = tryExecSync('claude -v') !== null
 
       const needsBrew = process.platform === 'darwin' && (!nodeInstalled || !ghInstalled)
       const brewAvailable = tryExecSync('which brew') !== null
@@ -472,6 +525,49 @@ export function registerSetupHandlers(): void {
           )
           if (!result.success) return result
           fixPath()
+        }
+      }
+
+      if (!claudeInstalled) {
+        event.sender.send('setup:output', '\n── Installing Claude Code ──\n')
+        if (process.platform === 'darwin' || process.platform === 'linux') {
+          const result = await spawnWithStreaming(
+            'bash',
+            ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'],
+            event
+          )
+          if (!result.success) return result
+          fixPath()
+        } else if (process.platform === 'win32') {
+          let result = await spawnWithStreaming(
+            'powershell',
+            [
+              '-NoProfile',
+              '-ExecutionPolicy',
+              'Bypass',
+              '-Command',
+              'irm https://claude.ai/install.ps1 | iex'
+            ],
+            event
+          )
+          if (!result.success) {
+            event.sender.send(
+              'setup:output',
+              'PowerShell install failed, trying CMD installer...\n'
+            )
+            result = await spawnWithStreaming(
+              'cmd',
+              [
+                '/c',
+                'curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd && del install.cmd'
+              ],
+              event
+            )
+          }
+          if (!result.success) return result
+          fixPath()
+        } else {
+          return { success: false, error: `Unsupported platform: ${process.platform}` }
         }
       }
 

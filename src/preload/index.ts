@@ -27,10 +27,12 @@ const api = {
     ipcRenderer.invoke('git:stage-and-commit', { message }),
   gitCreateBranch: (name: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('git:create-branch', { name }),
+  gitBranchPr: (): Promise<{ hasPr: boolean; url?: string; error?: string }> =>
+    ipcRenderer.invoke('git:branch-pr'),
   gitCreatePr: (
     title: string,
     body: string
-  ): Promise<{ success: boolean; url?: string; error?: string }> =>
+  ): Promise<{ success: boolean; url?: string; existing?: boolean; error?: string }> =>
     ipcRenderer.invoke('git:create-pr', { title, body }),
 
   // CLI - data queries
@@ -145,11 +147,14 @@ const api = {
     ipcRenderer.invoke('setup:install-bun'),
   setupInstallGh: (): Promise<{ success: boolean; error?: string; output?: string }> =>
     ipcRenderer.invoke('setup:install-gh'),
+  setupInstallClaude: (): Promise<{ success: boolean; error?: string; output?: string }> =>
+    ipcRenderer.invoke('setup:install-claude'),
   setupInstallAll: (): Promise<{ success: boolean; error?: string; output?: string }> =>
     ipcRenderer.invoke('setup:install-all'),
   setupAuthGh: (): Promise<{ success: boolean; error?: string; output?: string }> =>
     ipcRenderer.invoke('setup:auth-gh'),
-  setupCancelAuthGh: (): Promise<{ success: boolean }> => ipcRenderer.invoke('setup:cancel-auth-gh'),
+  setupCancelAuthGh: (): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('setup:cancel-auth-gh'),
   onSetupOutput: (callback: (data: string) => void): void => {
     ipcRenderer.on('setup:output', (_event, data: string) => callback(data))
   },

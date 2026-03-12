@@ -83,10 +83,10 @@ export interface UpdateBlogOptions {
 }
 
 export interface PrerequisiteStatus {
-  id: 'git' | 'node' | 'bun' | 'gh'
+  id: 'git' | 'node' | 'bun' | 'gh' | 'claude'
   installed: boolean
   version?: string
-  authenticated?: boolean  // only for gh
+  authenticated?: boolean // only for gh
 }
 
 export interface SetupCheckResult {

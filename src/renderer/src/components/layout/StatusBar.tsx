@@ -1,12 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import clsx from 'clsx'
-import { GitBranch, AlertTriangle, ArrowDown, RotateCcw, GitCommit, GitPullRequest, Copy, ExternalLink } from 'lucide-react'
+import {
+  GitBranch,
+  AlertTriangle,
+  ArrowDown,
+  RotateCcw,
+  GitCommit,
+  GitPullRequest,
+  GitCompareArrows,
+  Copy,
+  ExternalLink
+} from 'lucide-react'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { BranchSelector } from '../shared/BranchSelector'
 import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useGitStatus } from '../../hooks/useGitStatus'
-import { useDevServer } from '../../hooks/useDevServer'
 import { useRefreshKey } from '../../hooks/useRefreshKey'
 import { useToast } from '../ui/Toast'
 
@@ -17,7 +26,45 @@ type ConfirmDialogState =
   | { type: 'switch-branch'; branch: string }
   | { type: 'hard-reset' }
 
-type PopoverState = 'none' | 'commit' | 'create-pr'
+type PopoverState = 'none' | 'commit' | 'create-pr' | 'diff'
+
+interface DiffGroups {
+  modified: string[]
+  deleted: string[]
+  added: string[]
+}
+
+function groupDiffFiles(files: string[]): DiffGroups {
+  const modified = new Set<string>()
+  const deleted = new Set<string>()
+  const added = new Set<string>()
+
+  for (const entry of files) {
+    const line = entry.trim()
+    if (!line) continue
+
+    const code = line.slice(0, 2).trim()
+    const filePath = line.slice(2).trim() || line
+
+    if (code === '??' || code.includes('A')) {
+      added.add(filePath)
+      continue
+    }
+
+    if (code.includes('D')) {
+      deleted.add(filePath)
+      continue
+    }
+
+    modified.add(filePath)
+  }
+
+  return {
+    modified: Array.from(modified).sort((a, b) => a.localeCompare(b)),
+    deleted: Array.from(deleted).sort((a, b) => a.localeCompare(b)),
+    added: Array.from(added).sort((a, b) => a.localeCompare(b))
+  }
+}
 
 /* ─── Popover wrapper (opens upward from StatusBar) ─── */
 
@@ -75,10 +122,12 @@ function StatusBarPopover({
 
 function PrSuccessDialog({
   open,
+  mode,
   url,
   onClose
 }: {
   open: boolean
+  mode: 'created' | 'updated'
   url: string
   onClose: () => void
 }): React.JSX.Element | null {
@@ -123,7 +172,9 @@ function PrSuccessDialog({
       >
         <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/14 to-transparent" />
         <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">GitHub Flow</p>
-        <h2 className="mt-2 font-display text-2xl text-text-primary">Pull Request Created</h2>
+        <h2 className="mt-2 font-display text-2xl text-text-primary">
+          {mode === 'updated' ? 'Pull Request Updated' : 'Pull Request Created'}
+        </h2>
         <p className="mt-3 break-all text-sm leading-7 text-text-secondary">{url}</p>
         <div className="mt-7 flex items-center justify-end gap-3">
           <Button variant="secondary" size="md" icon={Copy} onClick={handleCopy}>
@@ -150,7 +201,6 @@ function PrSuccessDialog({
 
 export function StatusBar(): React.JSX.Element {
   const { branch, status, remoteStatus, loading, refetch } = useGitStatus()
-  const { running } = useDevServer()
   const { refresh } = useRefreshKey()
   const toast = useToast()
 
@@ -171,9 +221,11 @@ export function StatusBar(): React.JSX.Element {
   const [prTitle, setPrTitle] = useState('')
   const [prBody, setPrBody] = useState('')
   const [creatingPr, setCreatingPr] = useState(false)
+  const [branchPrUrl, setBranchPrUrl] = useState<string | null>(null)
 
   // PR success dialog
   const [prSuccessUrl, setPrSuccessUrl] = useState<string | null>(null)
+  const [prSuccessMode, setPrSuccessMode] = useState<'created' | 'updated'>('created')
 
   const isOnMain = branch === 'main'
 
@@ -189,6 +241,24 @@ export function StatusBar(): React.JSX.Element {
   useEffect(() => {
     fetchBranches()
   }, [fetchBranches])
+
+  const fetchBranchPr = useCallback(async () => {
+    if (!branch || branch === 'main') {
+      setBranchPrUrl(null)
+      return
+    }
+
+    try {
+      const result = await window.api.gitBranchPr()
+      setBranchPrUrl(result.hasPr ? result.url || null : null)
+    } catch {
+      setBranchPrUrl(null)
+    }
+  }, [branch])
+
+  useEffect(() => {
+    void fetchBranchPr()
+  }, [fetchBranchPr])
 
   /* ─── Pull flow ─── */
 
@@ -211,7 +281,7 @@ export function StatusBar(): React.JSX.Element {
     } finally {
       setPulling(false)
     }
-  }, [refetch, toast])
+  }, [refetch, refresh, toast])
 
   const handlePull = useCallback(async () => {
     // First check for uncommitted changes
@@ -254,12 +324,9 @@ export function StatusBar(): React.JSX.Element {
 
   /* ─── Branch switch flow ─── */
 
-  const handleSwitchBranch = useCallback(
-    (newBranch: string) => {
-      setDialog({ type: 'switch-branch', branch: newBranch })
-    },
-    []
-  )
+  const handleSwitchBranch = useCallback((newBranch: string) => {
+    setDialog({ type: 'switch-branch', branch: newBranch })
+  }, [])
 
   const handleConfirmSwitchBranch = useCallback(async () => {
     if (dialog.type !== 'switch-branch') return
@@ -346,27 +413,47 @@ export function StatusBar(): React.JSX.Element {
 
   const openPrPopover = useCallback(() => {
     setPrTitle(branch || '')
-    setPrBody('')
+    if (!branchPrUrl) {
+      setPrBody('')
+    }
     setPopover('create-pr')
-  }, [branch])
+  }, [branch, branchPrUrl])
 
   const handleCreatePr = useCallback(async () => {
-    if (!prTitle.trim()) return
+    const trimmedTitle = prTitle.trim()
+    if (!branchPrUrl && !trimmedTitle) return
+
     setCreatingPr(true)
     try {
-      const result = await window.api.gitCreatePr(prTitle.trim(), prBody.trim())
+      const result = await window.api.gitCreatePr(
+        trimmedTitle || branch || 'Update branch',
+        prBody.trim()
+      )
       if (result.success && result.url) {
         setPopover('none')
+        setBranchPrUrl(result.url)
+        setPrSuccessMode(result.existing ? 'updated' : 'created')
         setPrSuccessUrl(result.url)
       } else {
-        toast.error(result.error || 'Failed to create pull request')
+        toast.error(
+          result.error ||
+            (branchPrUrl
+              ? 'Failed to push updates to pull request'
+              : 'Failed to create pull request')
+        )
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create pull request')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : branchPrUrl
+            ? 'Failed to push updates to pull request'
+            : 'Failed to create pull request'
+      )
     } finally {
       setCreatingPr(false)
     }
-  }, [prTitle, prBody, toast])
+  }, [prTitle, prBody, branch, branchPrUrl, toast])
 
   /* ─── Dialog close ─── */
 
@@ -382,6 +469,10 @@ export function StatusBar(): React.JSX.Element {
   const hasDirtyFiles = !!status && !status.clean
   const behindCount = remoteStatus?.behind ?? 0
   const aheadCount = remoteStatus?.ahead ?? 0
+  const hasBranchPr = !!branchPrUrl
+  const prActionLabel = hasBranchPr ? 'Push to PR' : 'Create PR'
+  const diffGroups = useMemo(() => groupDiffFiles(status?.files ?? []), [status?.files])
+  const totalDiffFiles = diffGroups.modified.length + diffGroups.deleted.length + diffGroups.added.length
 
   return (
     <div className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(13,13,15,0.98),rgba(8,8,10,0.96))] backdrop-blur-2xl">
@@ -395,8 +486,8 @@ export function StatusBar(): React.JSX.Element {
         >
           <AlertTriangle size={14} className="shrink-0" />
           <span>
-            You&apos;re on branch <span className="font-mono font-semibold">{branch}</span>.
-            Switch to <span className="font-mono font-semibold">main</span> for production content.
+            You&apos;re on branch <span className="font-mono font-semibold">{branch}</span>. Switch
+            to <span className="font-mono font-semibold">main</span> for production content.
           </span>
         </div>
       )}
@@ -446,7 +537,13 @@ export function StatusBar(): React.JSX.Element {
             )}
             {!remoteStatus && <span className="text-text-tertiary">Checking remote</span>}
             {behindCount > 0 && (
-              <Button variant="ghost" size="sm" icon={ArrowDown} loading={pulling} onClick={handlePull}>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ArrowDown}
+                loading={pulling}
+                onClick={handlePull}
+              >
                 Update
               </Button>
             )}
@@ -465,7 +562,9 @@ export function StatusBar(): React.JSX.Element {
             <StatusBarPopover open={popover === 'commit'} onClose={closePopover}>
               <div className="flex flex-col gap-4">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary">Commit flow</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary">
+                    Commit flow
+                  </p>
                   <h3 className="mt-2 font-display text-2xl text-text-primary">
                     {isOnMain ? 'Create Branch & Commit' : 'Commit Changes'}
                   </h3>
@@ -518,68 +617,167 @@ export function StatusBar(): React.JSX.Element {
               disabled={isOnMain}
               title={isOnMain ? 'Switch to a branch first' : undefined}
             >
-              Create PR
+              {prActionLabel}
             </Button>
             <StatusBarPopover open={popover === 'create-pr'} onClose={closePopover}>
               <div className="flex flex-col gap-4">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary">Review flow</p>
-                  <h3 className="mt-2 font-display text-2xl text-text-primary">Create Pull Request</h3>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary">
+                    Review flow
+                  </p>
+                  <h3 className="mt-2 font-display text-2xl text-text-primary">
+                    {hasBranchPr ? 'Push to Pull Request' : 'Create Pull Request'}
+                  </h3>
                   <p className="mt-2 text-sm leading-6 text-text-secondary">
-                    Package the current branch into a PR and open the resulting GitHub URL.
+                    {hasBranchPr
+                      ? 'This branch already has an open PR. Push your latest commits to update it.'
+                      : 'Package the current branch into a PR and open the resulting GitHub URL.'}
                   </p>
                 </div>
-                <Input
-                  label="PR Title"
-                  placeholder="Pull request title..."
-                  value={prTitle}
-                  onChange={(e) => setPrTitle(e.target.value)}
-                />
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-text-primary select-none">
-                    Description
-                  </label>
-                  <textarea
-                    className={clsx(
-                      'w-full bg-bg-elevated text-text-primary rounded-md font-sans',
-                      'border px-3 py-2 text-sm leading-relaxed',
-                      'transition-all duration-200',
-                      'placeholder:text-text-tertiary',
-                      'border-border-primary hover:border-border-secondary',
-                      'focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-                      'focus:outline-none',
-                      'resize-none'
-                    )}
-                    rows={4}
-                    placeholder="Describe your changes..."
-                    value={prBody}
-                    onChange={(e) => setPrBody(e.target.value)}
+                {!hasBranchPr && (
+                  <Input
+                    label="PR Title"
+                    placeholder="Pull request title..."
+                    value={prTitle}
+                    onChange={(e) => setPrTitle(e.target.value)}
                   />
-                </div>
+                )}
+                {!hasBranchPr && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-text-primary select-none">
+                      Description
+                    </label>
+                    <textarea
+                      className={clsx(
+                        'w-full bg-bg-elevated text-text-primary rounded-md font-sans',
+                        'border px-3 py-2 text-sm leading-relaxed',
+                        'transition-all duration-200',
+                        'placeholder:text-text-tertiary',
+                        'border-border-primary hover:border-border-secondary',
+                        'focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
+                        'focus:outline-none',
+                        'resize-none'
+                      )}
+                      rows={4}
+                      placeholder="Describe your changes..."
+                      value={prBody}
+                      onChange={(e) => setPrBody(e.target.value)}
+                    />
+                  </div>
+                )}
+                {hasBranchPr && branchPrUrl && (
+                  <button
+                    type="button"
+                    className="self-start text-sm text-accent transition-colors duration-150 hover:text-accent/85"
+                    onClick={() => window.open(branchPrUrl, '_blank')}
+                  >
+                    Open current PR
+                  </button>
+                )}
                 <Button
                   variant="primary"
                   size="sm"
                   loading={creatingPr}
-                  disabled={!prTitle.trim()}
+                  disabled={!hasBranchPr && !prTitle.trim()}
                   onClick={handleCreatePr}
                   className="self-end"
                 >
-                  Create PR
+                  {prActionLabel}
                 </Button>
               </div>
             </StatusBarPopover>
           </div>
 
-          <Button variant="ghost" size="sm" icon={ExternalLink} onClick={() => window.api.openInCursor()}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={ExternalLink}
+            onClick={() => window.api.openInCursor()}
+          >
             Cursor
           </Button>
 
           <div className="mx-1 hidden h-5 w-px bg-white/8 xl:block" />
 
-          <span className={clsx('inline-block h-2.5 w-2.5 rounded-full', running ? 'bg-success animate-glow-pulse' : 'bg-text-tertiary')} />
-          <span className={clsx('text-[11px] font-medium uppercase tracking-[0.16em]', running ? 'text-success' : 'text-text-tertiary')}>
-            {running ? 'Running' : 'Stopped'}
-          </span>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={GitCompareArrows}
+              onClick={() => setPopover(popover === 'diff' ? 'none' : 'diff')}
+            >
+              Diff {totalDiffFiles > 0 ? `(${totalDiffFiles})` : ''}
+            </Button>
+            <StatusBarPopover open={popover === 'diff'} onClose={closePopover}>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary">
+                    Workspace changes
+                  </p>
+                  <h3 className="mt-2 font-display text-2xl text-text-primary">Diff Summary</h3>
+                </div>
+
+                {totalDiffFiles === 0 ? (
+                  <p className="text-sm leading-6 text-text-secondary">
+                    No local file changes detected.
+                  </p>
+                ) : (
+                  <div className="max-h-[18rem] space-y-3 overflow-y-auto pr-1">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-warning">
+                        Modified ({diffGroups.modified.length})
+                      </p>
+                      {diffGroups.modified.length > 0 ? (
+                        <ul className="mt-2 space-y-1.5">
+                          {diffGroups.modified.map((file) => (
+                            <li key={`m-${file}`} className="font-mono text-xs text-text-secondary break-all">
+                              {file}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-xs text-text-tertiary">None</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-danger">
+                        Deleted ({diffGroups.deleted.length})
+                      </p>
+                      {diffGroups.deleted.length > 0 ? (
+                        <ul className="mt-2 space-y-1.5">
+                          {diffGroups.deleted.map((file) => (
+                            <li key={`d-${file}`} className="font-mono text-xs text-text-secondary break-all">
+                              {file}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-xs text-text-tertiary">None</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-success">
+                        Added ({diffGroups.added.length})
+                      </p>
+                      {diffGroups.added.length > 0 ? (
+                        <ul className="mt-2 space-y-1.5">
+                          {diffGroups.added.map((file) => (
+                            <li key={`a-${file}`} className="font-mono text-xs text-text-secondary break-all">
+                              {file}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-xs text-text-tertiary">None</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </StatusBarPopover>
+          </div>
         </div>
       </div>
 
@@ -627,7 +825,12 @@ export function StatusBar(): React.JSX.Element {
         variant="default"
       />
 
-      <PrSuccessDialog open={!!prSuccessUrl} url={prSuccessUrl || ''} onClose={() => setPrSuccessUrl(null)} />
+      <PrSuccessDialog
+        open={!!prSuccessUrl}
+        mode={prSuccessMode}
+        url={prSuccessUrl || ''}
+        onClose={() => setPrSuccessUrl(null)}
+      />
     </div>
   )
 }
