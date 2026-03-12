@@ -14,6 +14,7 @@ function createWindow(): void {
 
   // Create the browser window.
   const mainWindow = new BrowserWindow({
+    title: 'Appwrite Website Manager',
     width: savedBounds.width,
     height: savedBounds.height,
     x: savedBounds.x,
@@ -64,6 +65,8 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  app.setName('Appwrite Website Manager')
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
