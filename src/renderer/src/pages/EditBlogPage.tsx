@@ -59,6 +59,7 @@ import { ClaudeSetupDialog } from '../components/shared/ClaudeSetupDialog'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { FormField } from '../components/forms/FormField'
 import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
+import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
 import type { Author, UpdateBlogOptions } from '../types'
 
 /* ─── Author Dropdown with Avatars ─── */
@@ -513,6 +514,7 @@ export default function EditBlogPage(): React.JSX.Element {
         // reflects that the editor content now matches what's on disk.
         setOriginalContent(currentContent)
         setIsDirty(false)
+        requestGitStatusRefresh()
         setSubmitResult('success')
         toast.success('Blog post updated successfully!')
       } else {

@@ -6,6 +6,7 @@ import { TerminalOutput } from '../components/shared/TerminalOutput'
 import { Button } from '../components/ui/Button'
 import { useToast } from '../components/ui/Toast'
 import { useAuthors } from '../hooks/useAuthors'
+import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
 import { InfoPill, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import type { CreateAuthorOptions } from '../types'
 
@@ -37,6 +38,7 @@ export default function CreateAuthorPage(): React.JSX.Element {
         window.api.removeCliOutputListener()
 
         if (result.success) {
+          requestGitStatusRefresh()
           setPageState('success')
           toast.success(`Author "${options.name}" created successfully!`)
         } else {

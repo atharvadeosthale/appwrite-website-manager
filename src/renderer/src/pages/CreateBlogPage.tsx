@@ -27,6 +27,7 @@ import { TerminalOutput } from '../components/shared/TerminalOutput'
 import { FileDropZone } from '../components/shared/FileDropZone'
 import { FormField } from '../components/forms/FormField'
 import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
+import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
 import type { Author, CreateBlogOptions } from '../types'
 
 function generateSlug(title: string): string {
@@ -326,6 +327,7 @@ export default function CreateBlogPage(): React.JSX.Element {
       window.api.removeCliOutputListener()
 
       if (result.success) {
+        requestGitStatusRefresh()
         setSubmitResult('success')
         toast.success('Blog post created successfully!')
       } else {
