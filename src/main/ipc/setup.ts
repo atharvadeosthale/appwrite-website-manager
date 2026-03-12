@@ -256,9 +256,13 @@ export function registerSetupHandlers(): void {
       prerequisites.push({ id: 'claude', installed: false })
     }
 
-    const allPassed =
-      prerequisites.every((p) => p.installed) &&
-      (prerequisites.find((p) => p.id === 'gh')?.authenticated === true)
+    // Claude is optional for general onboarding. It's required only when
+    // a user enters AI-specific flows (enforced in the renderer).
+    const requiredInstalled = prerequisites
+      .filter((p) => p.id !== 'claude')
+      .every((p) => p.installed)
+    const ghAuthenticated = prerequisites.find((p) => p.id === 'gh')?.authenticated === true
+    const allPassed = requiredInstalled && ghAuthenticated
 
     return {
       allPassed,

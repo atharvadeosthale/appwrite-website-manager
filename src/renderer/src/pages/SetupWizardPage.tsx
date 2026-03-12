@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   CheckCircle2,
   GitBranch,
@@ -179,6 +179,7 @@ function PrerequisiteCard({
               {isPassed && prereq.version && (
                 <Badge variant="success">{prereq.version}</Badge>
               )}
+              {prereq.id === 'claude' && <Badge variant="default">Optional</Badge>}
               {needsAuth && !authingGh && (
                 <Badge variant="warning">Needs auth</Badge>
               )}
@@ -225,6 +226,7 @@ function PrerequisiteCard({
 /* ─── SetupWizardPage — main export ─── */
 
 export default function SetupWizardPage(): React.JSX.Element {
+  const location = useLocation()
   const navigate = useNavigate()
   const { status, checking, recheck } = useSetupStatus()
 
@@ -236,6 +238,11 @@ export default function SetupWizardPage(): React.JSX.Element {
 
   // Track whether auto-navigation has fired so it only runs once
   const autoNavFired = useRef(false)
+  const requireClaude = Boolean(
+    (location.state as { requireClaude?: boolean } | null)?.requireClaude
+  )
+  const claudeInstalled = status?.prerequisites.find((p) => p.id === 'claude')?.installed ?? false
+  const setupPassed = Boolean(status?.allPassed && (!requireClaude || claudeInstalled))
 
   /* ── Event listeners ── */
 
@@ -252,13 +259,13 @@ export default function SetupWizardPage(): React.JSX.Element {
   /* ── Auto-navigate when all passed ── */
 
   useEffect(() => {
-    if (!status?.allPassed || autoNavFired.current) return
+    if (!setupPassed || autoNavFired.current) return
     autoNavFired.current = true
     const timer = setTimeout(() => {
       navigate('/', { replace: true })
     }, 800)
     return () => clearTimeout(timer)
-  }, [status?.allPassed, navigate])
+  }, [setupPassed, navigate])
 
   /* ── Install handler ── */
 
@@ -434,6 +441,14 @@ export default function SetupWizardPage(): React.JSX.Element {
             </div>
           )}
 
+          {requireClaude && !claudeInstalled && (
+            <div className="mt-5 animate-fade-in rounded-[16px] border border-warning/20 bg-warning-muted px-4 py-4">
+              <p className="text-sm leading-7 text-warning">
+                Claude Code is required to use Write with AI. Install it to continue.
+              </p>
+            </div>
+          )}
+
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
             <Button
               variant="secondary"
@@ -449,25 +464,26 @@ export default function SetupWizardPage(): React.JSX.Element {
               variant="primary"
               size="md"
               icon={ArrowRight}
-              disabled={!status?.allPassed}
+              disabled={!setupPassed}
               onClick={() => navigate('/', { replace: true })}
             >
               Continue
             </Button>
           </div>
 
-          {status?.allPassed && (
+          {setupPassed && (
             <div className="mt-5 animate-scale-in flex items-center justify-center gap-2 text-success">
               <CheckCircle2 size={16} />
               <span className="text-sm font-medium">
-                All prerequisites met — redirecting...
+                All required prerequisites met — redirecting...
               </span>
             </div>
           )}
         </div>
 
         <p className="mt-6 text-center text-xs leading-relaxed text-text-tertiary">
-          These tools are required to build and deploy the Appwrite website.
+          Core tools are required to build and deploy the Appwrite website. Claude Code is
+          optional and only needed for Write with AI.
         </p>
       </div>
     </div>

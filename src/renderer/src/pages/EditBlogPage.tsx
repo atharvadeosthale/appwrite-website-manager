@@ -343,7 +343,7 @@ export default function EditBlogPage(): React.JSX.Element {
 
   // Claude setup dialog state
   const [setupDialogOpen, setSetupDialogOpen] = useState(false)
-  const [setupReason, setSetupReason] = useState<'not-installed' | 'not-logged-in'>('not-installed')
+  const [setupReason, setSetupReason] = useState<'not-logged-in'>('not-logged-in')
   const lastAiPromptRef = useRef<string>('')
 
   // Unsaved changes tracking
@@ -545,14 +545,12 @@ export default function EditBlogPage(): React.JSX.Element {
       const claudeCheck = await window.api.checkClaude()
       console.log('[handleWriteWithAI] Claude check result:', claudeCheck)
       if (!claudeCheck.installed) {
-        setSetupReason('not-installed')
-        setSetupDialogOpen(true)
+        navigate('/setup', { state: { requireClaude: true } })
         return
       }
     } catch {
-      // If the check itself fails, show the install dialog
-      setSetupReason('not-installed')
-      setSetupDialogOpen(true)
+      // If the check itself fails, send the user to onboarding to install Claude
+      navigate('/setup', { state: { requireClaude: true } })
       return
     }
 
@@ -563,7 +561,7 @@ export default function EditBlogPage(): React.JSX.Element {
       setAiOutput([])
       setAiResult(null)
     }
-  }, [checkIfDirty])
+  }, [checkIfDirty, navigate])
 
   const handleConfirmAI = useCallback((): void => {
     setConfirmAIOpen(false)
@@ -656,13 +654,12 @@ export default function EditBlogPage(): React.JSX.Element {
   const handleSetupComplete = useCallback((): void => {
     setSetupDialogOpen(false)
 
-    if (setupReason === 'not-logged-in' && lastAiPromptRef.current) {
+    if (lastAiPromptRef.current) {
       // Automatically retry AI generation with the same prompt
       // The AI modal is still open, so just re-trigger generation
       handleAIGenerate(lastAiPromptRef.current)
     }
-    // If reason was 'not-installed', the user can manually click "Write with AI" again
-  }, [setupReason, handleAIGenerate])
+  }, [handleAIGenerate])
 
   /* ─── Cover image picker ─── */
   const handleSelectCover = async (): Promise<void> => {
