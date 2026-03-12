@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { GitStatus, RemoteStatus } from '../types'
+import { subscribeGitStatusRefresh } from './gitStatusRefresh'
 
 interface UseGitStatusResult {
   branch: string
@@ -44,6 +45,12 @@ export function useGitStatus(): UseGitStatusResult {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
+  }, [refetch])
+
+  useEffect(() => {
+    return subscribeGitStatusRefresh(() => {
+      void refetch()
+    })
   }, [refetch])
 
   return { branch, status, remoteStatus, loading, refetch }

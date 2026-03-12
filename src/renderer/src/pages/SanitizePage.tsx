@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react'
-import { Sparkles, Play, Info } from 'lucide-react'
+import { Play, Info, RotateCcw } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
 import { BlogSelector } from '../components/shared/BlogSelector'
 import { TerminalOutput } from '../components/shared/TerminalOutput'
 import { useToast } from '../components/ui/Toast'
 import { useBlogs } from '../hooks/useBlogs'
+import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import type { Blog } from '../types'
 
 export default function SanitizePage(): React.JSX.Element {
@@ -51,70 +51,54 @@ export default function SanitizePage(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="p-8 animate-fade-in space-y-8">
-      {/* Page Header */}
-      <div className="flex items-start gap-4">
-        <div className="flex items-center justify-center w-11 h-11 rounded-full bg-warning-muted shrink-0">
-          <Sparkles size={20} strokeWidth={1.8} className="text-warning" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
-            Sanitize Blog Post
-          </h1>
-          <p className="mt-1.5 text-sm text-text-secondary leading-relaxed">
-            Clean up and optimize a blog post with one click.
-          </p>
-        </div>
+    <PageScaffold>
+      <div className="space-y-8">
+        <PageIntro
+          eyebrow="Sanitizer"
+          title="Clean up a post before it ships."
+          description="Normalize headings, repair smart quotes, and run the repository’s formatting and optimization pipeline against a selected story."
+          meta={<InfoPill>{blogsLoading ? 'Scanning blog catalog' : `${blogs.length} posts available`}</InfoPill>}
+          actions={
+            <Button variant="primary" icon={Play} onClick={handleSanitize} loading={running} disabled={!selectedBlog || running}>
+              {running ? 'Sanitizing...' : 'Run Sanitize'}
+            </Button>
+          }
+        />
+
+        <SurfaceCard className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan/20 bg-cyan-muted text-cyan">
+            <Info size={20} strokeWidth={1.8} />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">What this does</p>
+            <p className="mt-2 text-sm leading-7 text-text-secondary">
+              Sanitize is safe to run repeatedly. It standardizes structure and formatting, then hands control back to your normal editing flow.
+            </p>
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard className="max-w-4xl" highlight>
+          <div className="space-y-5">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Target post</p>
+              <h2 className="mt-2 font-display text-2xl text-text-primary">Choose what to sanitize</h2>
+            </div>
+            <BlogSelector blogs={blogs} loading={blogsLoading} selected={selectedBlog} onSelect={setSelectedBlog} label="" placeholder="Search by title or slug..." />
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="primary" icon={Play} onClick={handleSanitize} loading={running} disabled={!selectedBlog || running}>
+                {running ? 'Sanitizing...' : 'Start Cleanup'}
+              </Button>
+              {completed && (
+                <Button variant="secondary" icon={RotateCcw} onClick={handleReset}>
+                  Sanitize Another
+                </Button>
+              )}
+            </div>
+          </div>
+        </SurfaceCard>
+
+        {cliOutput.length > 0 && <TerminalOutput lines={cliOutput} title="Sanitize" />}
       </div>
-
-      {/* Info Banner */}
-      <div className="flex items-start gap-3 p-4 rounded-lg bg-accent-muted/50 border border-accent/10">
-        <Info size={18} className="text-accent shrink-0 mt-0.5" />
-        <p className="text-sm text-text-secondary leading-relaxed">
-          Sanitize fixes heading levels and smart quotes in your blog post, then runs optimization
-          and formatting. This is safe to run multiple times.
-        </p>
-      </div>
-
-      {/* Blog Selection */}
-      <Card>
-        <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-text-primary">Choose a blog post</h2>
-          <BlogSelector
-            blogs={blogs}
-            loading={blogsLoading}
-            selected={selectedBlog}
-            onSelect={setSelectedBlog}
-            label=""
-            placeholder="Search by title or slug..."
-          />
-        </div>
-      </Card>
-
-      {/* Action */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="primary"
-          icon={Play}
-          onClick={handleSanitize}
-          loading={running}
-          disabled={!selectedBlog || running}
-        >
-          {running ? 'Sanitizing...' : 'Sanitize'}
-        </Button>
-        {completed && (
-          <Button variant="ghost" size="sm" onClick={handleReset}>
-            Sanitize another
-          </Button>
-        )}
-      </div>
-
-      {/* Terminal Output */}
-      {cliOutput.length > 0 && (
-        <div className="animate-fade-in">
-          <TerminalOutput lines={cliOutput} title="Sanitize" />
-        </div>
-      )}
-    </div>
+    </PageScaffold>
   )
 }

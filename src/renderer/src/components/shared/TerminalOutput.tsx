@@ -11,7 +11,6 @@ export function TerminalOutput({ lines, title }: TerminalOutputProps): React.JSX
   const scrollRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
 
-  // Auto-scroll to bottom when new lines arrive
   useEffect(() => {
     const el = scrollRef.current
     if (el) {
@@ -27,22 +26,24 @@ export function TerminalOutput({ lines, title }: TerminalOutputProps): React.JSX
   }
 
   return (
-    <div className="rounded-lg border border-border-primary overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-tertiary border-b border-border-primary">
+    <div className="overflow-hidden rounded-[16px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,16,19,0.98),rgba(10,10,12,0.98))] shadow-[0_22px_48px_rgba(0,0,0,0.28)]">
+      <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.03] px-4 py-3">
         <div className="flex items-center gap-2 text-text-secondary">
-          <Terminal size={14} />
-          <span className="text-xs font-medium">{title ?? 'Output'}</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-[12px] border border-white/8 bg-white/[0.04]">
+            <Terminal size={15} className="text-text-primary" />
+          </span>
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Live Output</p>
+            <p className="text-sm text-text-primary">{title ?? 'Output'}</p>
+          </div>
         </div>
         <button
           onClick={handleCopy}
           className={clsx(
-            'inline-flex items-center gap-1.5 px-2 py-1 rounded-sm',
-            'text-xs cursor-pointer',
-            'transition-all duration-200',
+            'inline-flex items-center gap-1.5 rounded-[12px] border px-3 py-1.5 text-xs font-medium transition-all duration-200',
             copied
-              ? 'text-success bg-success-muted'
-              : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-hover'
+              ? 'border-success/20 bg-success-muted text-success'
+              : 'border-white/10 bg-white/[0.04] text-text-secondary hover:border-white/16 hover:text-text-primary'
           )}
           aria-label="Copy output"
         >
@@ -50,25 +51,14 @@ export function TerminalOutput({ lines, title }: TerminalOutputProps): React.JSX
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-
-      {/* Terminal body */}
-      <div
-        ref={scrollRef}
-        className={clsx(
-          'bg-bg-tertiary/60 p-4',
-          'max-h-72 overflow-y-auto',
-          'font-mono text-xs leading-relaxed text-text-primary'
-        )}
-      >
+      <div ref={scrollRef} className="max-h-80 overflow-y-auto bg-[#0b0b0d] p-4 font-mono text-[12px] leading-6 text-[#d7d8de]">
         {lines.length === 0 ? (
           <span className="text-text-tertiary italic">Waiting for output...</span>
         ) : (
-          lines.map((line, i) => (
-            <div key={i} className="whitespace-pre-wrap break-all">
-              <span className="text-text-tertiary select-none mr-3 inline-block w-5 text-right tabular-nums">
-                {i + 1}
-              </span>
-              {line}
+          lines.map((line, index) => (
+            <div key={index} className="grid grid-cols-[2.25rem_1fr] gap-3 whitespace-pre-wrap break-all">
+              <span className="select-none text-right text-[10px] text-[#50545c]">{index + 1}</span>
+              <span>{line || '\u00A0'}</span>
             </div>
           ))
         )}

@@ -10,7 +10,8 @@ import {
   X,
   Check,
   FilePlus,
-  List
+  List,
+  Sparkles
 } from 'lucide-react'
 import { useAuthors } from '../hooks/useAuthors'
 import { useBlogs } from '../hooks/useBlogs'
@@ -25,9 +26,9 @@ import { AuthorAvatar } from '../components/shared/AuthorAvatar'
 import { TerminalOutput } from '../components/shared/TerminalOutput'
 import { FileDropZone } from '../components/shared/FileDropZone'
 import { FormField } from '../components/forms/FormField'
+import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
+import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
 import type { Author, CreateBlogOptions } from '../types'
-
-/* ─── Slug generation ─── */
 
 function generateSlug(title: string): string {
   return title
@@ -38,17 +39,13 @@ function generateSlug(title: string): string {
     .replace(/-+/g, '-')
 }
 
-/* ─── Today's date as YYYY-MM-DD ─── */
-
 function todayString(): string {
-  const d = new Date()
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
+  const date = new Date()
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
 }
-
-/* ─── Author Dropdown with Avatars ─── */
 
 interface AuthorDropdownProps {
   authors: Author[]
@@ -58,33 +55,23 @@ interface AuthorDropdownProps {
   error?: string
 }
 
-function AuthorDropdown({
-  authors,
-  repoPath,
-  value,
-  onChange,
-  error
-}: AuthorDropdownProps): React.JSX.Element {
+function AuthorDropdown({ authors, repoPath, value, onChange, error }: AuthorDropdownProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const selectedAuthor = authors.find((a) => a.slug === value)
+  const selectedAuthor = authors.find((author) => author.slug === value)
 
   const filtered = useMemo(() => {
     if (!search.trim()) return authors
-    const q = search.toLowerCase()
-    return authors.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) || a.slug.toLowerCase().includes(q)
-    )
+    const query = search.toLowerCase()
+    return authors.filter((author) => author.name.toLowerCase().includes(query) || author.slug.toLowerCase().includes(query))
   }, [authors, search])
 
-  // Close on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent): void => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+    const handler = (event: MouseEvent): void => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false)
         setSearch('')
       }
@@ -93,7 +80,6 @@ function AuthorDropdown({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Focus search when opened
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
       searchInputRef.current.focus()
@@ -107,88 +93,59 @@ function AuthorDropdown({
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Trigger button */}
       <button
         type="button"
         onClick={() => {
-          setIsOpen(!isOpen)
+          setIsOpen((current) => !current)
           setSearch('')
         }}
         className={clsx(
-          'w-full flex items-center gap-2.5 px-3 py-2',
-          'bg-bg-elevated rounded-md text-sm text-left',
-          'border transition-all duration-200 cursor-pointer',
+          'flex w-full items-center gap-3 rounded-[12px] border px-4 py-2.5 text-left transition-all duration-200',
+          'bg-[linear-gradient(180deg,rgba(23,23,27,0.94),rgba(15,15,18,0.88))]',
           error
-            ? 'border-danger focus:border-danger focus:shadow-[0_0_0_3px_rgba(217,48,54,0.1)]'
+            ? 'border-danger/45 focus:border-danger focus:shadow-[0_0_0_3px_rgba(255,140,140,0.12)]'
             : isOpen
-              ? 'border-accent shadow-[0_0_0_3px_var(--color-accent-muted)]'
-              : 'border-border-primary hover:border-border-secondary',
+              ? 'border-white/18 shadow-[0_0_0_3px_rgba(255,255,255,0.05)]'
+              : 'border-white/10 hover:border-white/16',
           'focus:outline-none'
         )}
       >
         {selectedAuthor ? (
           <>
-            <AuthorAvatar
-              src={getAvatarSrc(selectedAuthor)}
-              name={selectedAuthor.name}
-              size="sm"
-            />
-            <span className="flex-1 text-text-primary truncate">{selectedAuthor.name}</span>
+            <AuthorAvatar src={getAvatarSrc(selectedAuthor)} name={selectedAuthor.name} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-text-primary">{selectedAuthor.name}</p>
+              <p className="mt-1 truncate text-xs text-text-tertiary">{selectedAuthor.role}</p>
+            </div>
           </>
         ) : (
-          <span className="flex-1 text-text-tertiary">Select an author...</span>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-text-primary">Select an author</p>
+            <p className="mt-1 text-xs text-text-tertiary">Search by name or slug</p>
+          </div>
         )}
-        <ChevronDown
-          size={16}
-          className={clsx(
-            'shrink-0 text-text-tertiary transition-transform duration-200',
-            isOpen && 'rotate-180'
-          )}
-        />
+        <ChevronDown size={16} className={clsx('shrink-0 text-text-tertiary transition-transform duration-200', isOpen && 'rotate-180')} />
       </button>
 
-      {/* Dropdown panel */}
       {isOpen && (
-        <div
-          className={clsx(
-            'absolute z-30 top-full left-0 right-0 mt-1',
-            'bg-bg-elevated rounded-lg shadow-lg',
-            'border border-border-primary',
-            'overflow-hidden',
-            'animate-scale-in'
-          )}
-        >
-          {/* Search within dropdown */}
-          <div className="p-2 border-b border-border-primary">
+        <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgba(26,26,30,0.98),rgba(12,12,14,0.98))] shadow-[0_24px_70px_rgba(3,7,18,0.38)] animate-scale-in">
+          <div className="border-b border-white/8 p-3">
             <div className="relative">
-              <Search
-                size={14}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary"
-              />
+              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" />
               <input
                 ref={searchInputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search authors..."
-                className={clsx(
-                  'w-full pl-8 pr-3 py-1.5',
-                  'text-xs bg-bg-secondary rounded-md',
-                  'border border-border-primary',
-                  'focus:outline-none focus:border-accent',
-                  'placeholder:text-text-tertiary',
-                  'transition-all duration-150'
-                )}
+                className="w-full rounded-[12px] border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-text-primary focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none"
               />
             </div>
           </div>
 
-          {/* Options list */}
-          <div className="max-h-52 overflow-y-auto py-1">
+          <div className="max-h-60 overflow-y-auto p-2">
             {filtered.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-text-tertiary">
-                No authors found
-              </div>
+              <div className="px-3 py-6 text-center text-xs text-text-tertiary">No authors found</div>
             ) : (
               filtered.map((author) => {
                 const isSelected = author.slug === value
@@ -202,26 +159,16 @@ function AuthorDropdown({
                       setSearch('')
                     }}
                     className={clsx(
-                      'w-full flex items-center gap-2.5 px-3 py-2',
-                      'text-left text-sm cursor-pointer',
-                      'transition-colors duration-100',
-                      isSelected
-                        ? 'bg-accent-muted text-accent'
-                        : 'text-text-primary hover:bg-bg-hover'
+                      'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors duration-150',
+                      isSelected ? 'bg-accent-muted text-accent' : 'text-text-primary hover:bg-white/[0.05]'
                     )}
                   >
-                    <AuthorAvatar
-                      src={getAvatarSrc(author)}
-                      name={author.name}
-                      size="sm"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <span className="block truncate font-medium text-sm">{author.name}</span>
-                      <span className="block truncate text-xs text-text-tertiary">{author.role}</span>
+                    <AuthorAvatar src={getAvatarSrc(author)} name={author.name} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{author.name}</p>
+                      <p className="mt-1 truncate text-xs text-text-tertiary">{author.role}</p>
                     </div>
-                    {isSelected && (
-                      <Check size={14} className="shrink-0 text-accent" />
-                    )}
+                    {isSelected && <Check size={14} className="shrink-0 text-accent" />}
                   </button>
                 )
               })
@@ -233,7 +180,61 @@ function AuthorDropdown({
   )
 }
 
-/* ─── CreateBlogPage ─── */
+function MetaToggle({
+  title,
+  description,
+  checked,
+  onChange
+}: {
+  title: string
+  description: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}): React.JSX.Element {
+  return (
+    <div className="flex items-center justify-between rounded-[14px] border border-white/8 bg-white/[0.03] px-4 py-3.5">
+      <div>
+        <p className="text-sm font-medium text-text-primary">{title}</p>
+        <p className="mt-1 text-xs leading-6 text-text-tertiary">{description}</p>
+      </div>
+      <Toggle checked={checked} onChange={onChange} />
+    </div>
+  )
+}
+
+function FieldTextarea({
+  value,
+  onChange,
+  placeholder,
+  rows = 3,
+  error,
+  disabled = false
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  rows?: number
+  error?: string
+  disabled?: boolean
+}): React.JSX.Element {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={rows}
+      disabled={disabled}
+      className={clsx(
+        'min-h-[110px] w-full resize-y rounded-[12px] border px-4 py-3 text-sm leading-7',
+        'bg-[linear-gradient(180deg,rgba(22,22,26,0.94),rgba(14,14,18,0.9))] text-text-primary placeholder:text-text-tertiary transition-all duration-200',
+        error
+          ? 'border-danger/45 focus:border-danger focus:shadow-[0_0_0_3px_rgba(255,140,140,0.12)]'
+          : 'border-white/10 hover:border-white/16 focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)]',
+        'focus:outline-none disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-text-tertiary'
+      )}
+    />
+  )
+}
 
 export default function CreateBlogPage(): React.JSX.Element {
   const navigate = useNavigate()
@@ -242,7 +243,6 @@ export default function CreateBlogPage(): React.JSX.Element {
   const { blogs: existingBlogs, loading: blogsLoading } = useBlogs()
   const { categories, loading: categoriesLoading } = useCategories()
 
-  // Form state
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [slugManual, setSlugManual] = useState(false)
@@ -256,37 +256,25 @@ export default function CreateBlogPage(): React.JSX.Element {
   const [coverPath, setCoverPath] = useState('')
   const [notionZipPath, setNotionZipPath] = useState('')
 
-  // Submission state
   const [submitting, setSubmitting] = useState(false)
   const [cliOutput, setCliOutput] = useState<string[]>([])
   const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null)
-
-  // Validation
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  // Repo path for avatar images
   const [repoPath, setRepoPath] = useState('')
   useEffect(() => {
     window.api.getRepoPath().then(setRepoPath).catch(() => {})
   }, [])
 
-  // Auto-generate slug from title
   useEffect(() => {
     if (!slugManual) {
       setSlug(generateSlug(title))
     }
   }, [title, slugManual])
 
-  // Category options for Select component
-  const categoryOptions = useMemo(
-    () => categories.map((c) => ({ value: c.slug, label: c.name })),
-    [categories]
-  )
-
+  const categoryOptions = useMemo(() => categories.map((category) => ({ value: category.slug, label: category.name })), [categories])
   const loading = authorsLoading || blogsLoading || categoriesLoading
-
-  // Real-time slug uniqueness check
-  const existingBlogSlugs = useMemo(() => existingBlogs.map((b) => b.slug), [existingBlogs])
+  const existingBlogSlugs = useMemo(() => existingBlogs.map((blog) => blog.slug), [existingBlogs])
   const slugTakenError = useMemo(() => {
     const trimmed = slug.trim()
     if (trimmed && existingBlogSlugs.includes(trimmed)) {
@@ -295,22 +283,20 @@ export default function CreateBlogPage(): React.JSX.Element {
     return undefined
   }, [slug, existingBlogSlugs])
 
-  /* ─── Validation ─── */
   const validate = useCallback((): boolean => {
-    const errs: Record<string, string> = {}
-    if (!title.trim()) errs.title = 'Title is required'
-    if (!slug.trim()) errs.slug = 'Slug is required'
-    else if (existingBlogSlugs.includes(slug.trim())) errs.slug = 'This slug is already taken'
-    if (!description.trim()) errs.description = 'Description is required'
-    if (!date) errs.date = 'Date is required'
-    if (!author) errs.author = 'Author is required'
-    if (!category) errs.category = 'Category is required'
-    if (timeToRead < 1) errs.timeToRead = 'Must be at least 1 minute'
-    setErrors(errs)
-    return Object.keys(errs).length === 0
+    const nextErrors: Record<string, string> = {}
+    if (!title.trim()) nextErrors.title = 'Title is required'
+    if (!slug.trim()) nextErrors.slug = 'Slug is required'
+    else if (existingBlogSlugs.includes(slug.trim())) nextErrors.slug = 'This slug is already taken'
+    if (!description.trim()) nextErrors.description = 'Description is required'
+    if (!date) nextErrors.date = 'Date is required'
+    if (!author) nextErrors.author = 'Author is required'
+    if (!category) nextErrors.category = 'Category is required'
+    if (timeToRead < 1) nextErrors.timeToRead = 'Must be at least 1 minute'
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
   }, [title, slug, description, date, author, category, timeToRead, existingBlogSlugs])
 
-  /* ─── Submit ─── */
   const handleSubmit = async (): Promise<void> => {
     if (!validate()) return
 
@@ -338,10 +324,10 @@ export default function CreateBlogPage(): React.JSX.Element {
       })
 
       const result = await window.api.createBlog(options)
-
       window.api.removeCliOutputListener()
 
       if (result.success) {
+        requestGitStatusRefresh()
         setSubmitResult('success')
         toast.success('Blog post created successfully!')
       } else {
@@ -357,7 +343,6 @@ export default function CreateBlogPage(): React.JSX.Element {
     }
   }
 
-  /* ─── Reset for "Create Another" ─── */
   const handleCreateAnother = (): void => {
     setTitle('')
     setSlug('')
@@ -368,6 +353,7 @@ export default function CreateBlogPage(): React.JSX.Element {
     setAuthor('')
     setCategory('')
     setFeatured(false)
+    setUnlisted(false)
     setCoverPath('')
     setNotionZipPath('')
     setCliOutput([])
@@ -375,377 +361,312 @@ export default function CreateBlogPage(): React.JSX.Element {
     setErrors({})
   }
 
-  /* ─── Cover image picker ─── */
   const handleSelectCover = async (): Promise<void> => {
     const path = await window.api.selectImage()
     if (path) setCoverPath(path)
   }
 
-  /* ─── Notion zip picker ─── */
   const handleSelectZip = async (): Promise<void> => {
     const path = await window.api.selectZip()
     if (path) setNotionZipPath(path)
   }
 
-  /* ─── Loading state ─── */
+  const selectedAuthor = authors.find((entry) => entry.slug === author)
+  const selectedCategory = categories.find((entry) => entry.slug === category)
+
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 animate-fade-in">
-        <Spinner size="lg" />
-        <p className="text-sm text-text-secondary">Loading form data...</p>
-      </div>
+      <PageScaffold>
+        <SurfaceCard className="flex min-h-[24rem] flex-col items-center justify-center">
+          <Spinner size="lg" className="text-cyan" />
+          <p className="mt-4 text-sm text-text-secondary">Loading form data...</p>
+        </SurfaceCard>
+      </PageScaffold>
     )
   }
 
-  /* ─── Success state ─── */
   if (submitResult === 'success') {
     return (
-      <div className="p-8 animate-fade-in">
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard/blogs')}
-          className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors mb-6 cursor-pointer"
-        >
-          <ArrowLeft size={16} />
-          Back to Blog Posts
-        </button>
-
-        <div className="max-w-2xl">
-          <div className="bg-success-muted border border-success/20 rounded-lg p-8 text-center mb-6">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-success/10 mb-4">
-              <Check size={28} className="text-success" />
+      <PageScaffold>
+        <div className="space-y-8">
+          <Button variant="ghost" size="md" icon={ArrowLeft} onClick={() => navigate('/dashboard/blogs')}>
+            Back to Blog Posts
+          </Button>
+          <SurfaceCard className="max-w-3xl px-8 py-10 text-center" highlight>
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[16px] border border-success/20 bg-success-muted text-success">
+              <Check size={30} strokeWidth={1.9} />
             </div>
-            <h2 className="text-lg font-semibold text-text-primary mb-1">Blog post created!</h2>
-            <p className="text-sm text-text-secondary">
-              &ldquo;{title}&rdquo; has been added to your website.
+            <h2 className="mt-5 font-display text-4xl text-text-primary">Blog post created</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-text-secondary">
+              “{title}” is now part of the website repository and ready for further editing or review.
             </p>
-          </div>
-
-          {/* CLI output */}
-          {cliOutput.length > 0 && (
-            <div className="mb-6">
-              <TerminalOutput lines={cliOutput} title="CLI Output" />
+            {cliOutput.length > 0 && <div className="mt-8"><TerminalOutput lines={cliOutput} title="Create Blog" /></div>}
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <Button variant="primary" icon={FilePlus} onClick={handleCreateAnother}>
+                Create Another
+              </Button>
+              <Button variant="secondary" icon={List} onClick={() => navigate('/dashboard/blogs')}>
+                View Blogs
+              </Button>
             </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="primary"
-              icon={FilePlus}
-              onClick={handleCreateAnother}
-            >
-              Create Another
-            </Button>
-            <Button
-              variant="secondary"
-              icon={List}
-              onClick={() => navigate('/dashboard/blogs')}
-            >
-              View Blogs
-            </Button>
-          </div>
+          </SurfaceCard>
         </div>
-      </div>
+      </PageScaffold>
     )
   }
 
   return (
-    <div className="p-8 animate-fade-in">
-      {/* Back link */}
-      <button
-        type="button"
-        onClick={() => navigate('/dashboard/blogs')}
-        className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors mb-6 cursor-pointer"
-      >
-        <ArrowLeft size={16} />
-        Back to Blog Posts
-      </button>
+    <PageScaffold wide>
+      <div className="space-y-8">
+        <Button variant="ghost" size="md" icon={ArrowLeft} onClick={() => navigate('/dashboard/blogs')}>
+          Back to Blog Posts
+        </Button>
 
-      {/* Page title */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
-          Create Blog Post
-        </h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Fill in the details below to create a new blog post for the website.
-        </p>
-      </div>
-
-      <div className="max-w-2xl space-y-6">
-        {/* Title */}
-        <FormField label="Title" required error={errors.title}>
-          <Input
-            value={title}
-            onChange={(e) => {
-              setTitle(e.target.value)
-              if (errors.title) setErrors((prev) => ({ ...prev, title: '' }))
-            }}
-            placeholder="e.g., Introducing Appwrite Functions 2.0"
-            error={errors.title}
-          />
-        </FormField>
-
-        {/* Slug */}
-        <FormField
-          label="Slug"
-          required
-          error={errors.slug || slugTakenError}
-          helperText={slugTakenError ? undefined : (slugManual ? 'Custom slug (editing manually)' : 'Auto-generated from title')}
-        >
-          <Input
-            value={slug}
-            onChange={(e) => {
-              setSlugManual(true)
-              setSlug(e.target.value)
-              if (errors.slug) setErrors((prev) => ({ ...prev, slug: '' }))
-            }}
-            placeholder="e.g., introducing-appwrite-functions-2"
-            error={errors.slug || slugTakenError}
-          />
-        </FormField>
-
-        {/* Description */}
-        <FormField label="Description" required error={errors.description}>
-          <textarea
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value)
-              if (errors.description) setErrors((prev) => ({ ...prev, description: '' }))
-            }}
-            placeholder="A brief summary of the blog post..."
-            rows={3}
-            className={clsx(
-              'w-full bg-bg-elevated text-text-primary rounded-md font-sans',
-              'border px-3 py-2 text-sm leading-relaxed',
-              'transition-all duration-200',
-              'placeholder:text-text-tertiary',
-              'resize-y min-h-[80px]',
-              errors.description
-                ? 'border-danger focus:border-danger focus:shadow-[0_0_0_3px_rgba(217,48,54,0.1)]'
-                : 'border-border-primary hover:border-border-secondary focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-              'focus:outline-none'
-            )}
-          />
-        </FormField>
-
-        {/* Date + Time to Read (side by side) */}
-        <div className="grid grid-cols-2 gap-4">
-          <FormField label="Date" required error={errors.date}>
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value)
-                if (errors.date) setErrors((prev) => ({ ...prev, date: '' }))
-              }}
-              error={errors.date}
-            />
-          </FormField>
-
-          <FormField
-            label="Time to Read"
-            error={errors.timeToRead}
-            helperText="In minutes"
-          >
-            <Input
-              type="number"
-              value={String(timeToRead)}
-              onChange={(e) => {
-                setTimeToRead(Number(e.target.value) || 0)
-                if (errors.timeToRead) setErrors((prev) => ({ ...prev, timeToRead: '' }))
-              }}
-              min={1}
-              error={errors.timeToRead}
-            />
-          </FormField>
-        </div>
-
-        {/* Author (custom dropdown) */}
-        <FormField label="Author" required error={errors.author}>
-          <AuthorDropdown
-            authors={authors}
-            repoPath={repoPath}
-            value={author}
-            onChange={(slug) => {
-              setAuthor(slug)
-              if (errors.author) setErrors((prev) => ({ ...prev, author: '' }))
-            }}
-            error={errors.author}
-          />
-        </FormField>
-
-        {/* Category */}
-        <FormField label="Category" required error={errors.category}>
-          <Select
-            options={categoryOptions}
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value)
-              if (errors.category) setErrors((prev) => ({ ...prev, category: '' }))
-            }}
-            placeholder="Select a category..."
-            error={errors.category}
-          />
-        </FormField>
-
-        {/* Featured */}
-        <div className="flex items-center justify-between py-2">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Featured Post</p>
-            <p className="text-xs text-text-tertiary mt-0.5">
-              Featured posts appear prominently on the homepage
-            </p>
-          </div>
-          <Toggle checked={featured} onChange={setFeatured} />
-        </div>
-
-        {/* Unlisted */}
-        <div className="flex items-center justify-between py-2">
-          <div>
-            <p className="text-sm font-medium text-text-primary">Unlisted</p>
-            <p className="text-xs text-text-tertiary mt-0.5">
-              Hidden from blog listing (for SEO blogs)
-            </p>
-          </div>
-          <Toggle checked={unlisted} onChange={setUnlisted} />
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-border-primary" />
-
-        {/* Cover Image */}
-        <FormField label="Cover Image" helperText="Optional. Select a cover image for the blog post.">
-          {coverPath ? (
-            <div className="relative rounded-lg overflow-hidden border border-border-primary bg-bg-secondary">
-              <img
-                src={`file://${coverPath}`}
-                alt="Cover preview"
-                className="w-full h-40 object-cover"
-                onError={(e) => {
-                  ;(e.target as HTMLImageElement).style.display = 'none'
-                }}
-              />
-              <div className="absolute top-2 right-2 flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setCoverPath('')}
-                  className={clsx(
-                    'p-1.5 rounded-md',
-                    'bg-bg-elevated/90 backdrop-blur-sm',
-                    'text-text-secondary hover:text-danger',
-                    'border border-border-primary',
-                    'transition-colors duration-150 cursor-pointer'
-                  )}
-                  title="Remove cover image"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-              <div className="px-3 py-2 text-xs text-text-tertiary truncate border-t border-border-primary">
-                {coverPath.split('/').pop()}
-              </div>
-            </div>
-          ) : (
-            <Button
-              variant="secondary"
-              icon={ImageIcon}
-              onClick={handleSelectCover}
-            >
-              Choose Image
+        <PageIntro
+          eyebrow="New Story"
+          title="Launch a post with structure, not guesswork."
+          description="Capture metadata once, keep the slug clean, and stage optional assets like a cover image or Notion export before the CLI writes everything to the repository."
+          meta={
+            <>
+              <InfoPill>{existingBlogs.length} existing posts</InfoPill>
+              <InfoPill>{categories.length} categories available</InfoPill>
+            </>
+          }
+          actions={
+            <Button variant="primary" size="lg" icon={Sparkles} onClick={handleSubmit} loading={submitting} disabled={submitting || !!slugTakenError}>
+              Create Blog Post
             </Button>
-          )}
-        </FormField>
+          }
+        />
 
-        {/* Notion Import */}
-        <FormField
-          label="Notion Import"
-          helperText="Optional. Import content from a Notion export (.zip). The CLI will handle conversion."
-        >
-          {notionZipPath ? (
-            <div
-              className={clsx(
-                'flex items-center gap-3 px-4 py-3',
-                'bg-bg-secondary rounded-lg',
-                'border border-border-primary'
-              )}
-            >
-              <FileArchive size={18} className="shrink-0 text-accent" />
-              <span className="flex-1 text-sm text-text-primary truncate">
-                {notionZipPath.split('/').pop()}
-              </span>
-              <button
-                type="button"
-                onClick={() => setNotionZipPath('')}
-                className="shrink-0 p-1 rounded-sm text-text-tertiary hover:text-danger transition-colors cursor-pointer"
-                title="Remove zip file"
-              >
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <FileDropZone
-                accept=".zip"
-                onFile={setNotionZipPath}
-                label="Drop a Notion export .zip here, or click to browse"
-                icon={FileArchive}
-              />
-              <div className="flex items-center gap-3">
-                <div className="flex-1 border-t border-border-primary" />
-                <span className="text-xs text-text-tertiary">or</span>
-                <div className="flex-1 border-t border-border-primary" />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <SurfaceCard className="p-6 sm:p-8" highlight>
+            <div className="space-y-8">
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">Metadata</p>
+                <h2 className="font-display text-3xl text-text-primary">Core story details</h2>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={FileArchive}
-                onClick={handleSelectZip}
+
+              <FormField label="Title" required error={errors.title}>
+                <Input
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value)
+                    if (errors.title) setErrors((prev) => ({ ...prev, title: '' }))
+                  }}
+                  placeholder="e.g., Introducing Appwrite Functions 2.0"
+                  error={errors.title}
+                />
+              </FormField>
+
+              <FormField
+                label="Slug"
+                required
+                error={errors.slug || slugTakenError}
+                helperText={slugTakenError ? undefined : slugManual ? 'Custom slug (editing manually).' : 'Auto-generated from the title.'}
               >
-                Browse for .zip
-              </Button>
+                <Input
+                  value={slug}
+                  onChange={(e) => {
+                    setSlugManual(true)
+                    setSlug(e.target.value)
+                    if (errors.slug) setErrors((prev) => ({ ...prev, slug: '' }))
+                  }}
+                  placeholder="e.g., introducing-appwrite-functions-2"
+                  error={errors.slug || slugTakenError}
+                />
+              </FormField>
+
+              <FormField label="Description" required error={errors.description}>
+                <FieldTextarea
+                  value={description}
+                  onChange={(value) => {
+                    setDescription(value)
+                    if (errors.description) setErrors((prev) => ({ ...prev, description: '' }))
+                  }}
+                  placeholder="A short summary that sells the post and feeds metadata surfaces."
+                  error={errors.description}
+                />
+              </FormField>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Date" required error={errors.date}>
+                  <Input
+                    type="date"
+                    value={date}
+                    onChange={(e) => {
+                      setDate(e.target.value)
+                      if (errors.date) setErrors((prev) => ({ ...prev, date: '' }))
+                    }}
+                    error={errors.date}
+                  />
+                </FormField>
+                <FormField label="Time to Read" error={errors.timeToRead} helperText="In minutes">
+                  <Input
+                    type="number"
+                    value={String(timeToRead)}
+                    onChange={(e) => {
+                      setTimeToRead(Number(e.target.value) || 0)
+                      if (errors.timeToRead) setErrors((prev) => ({ ...prev, timeToRead: '' }))
+                    }}
+                    min={1}
+                    error={errors.timeToRead}
+                  />
+                </FormField>
+              </div>
+
+              <FormField label="Author" required error={errors.author}>
+                <AuthorDropdown
+                  authors={authors}
+                  repoPath={repoPath}
+                  value={author}
+                  onChange={(slugValue) => {
+                    setAuthor(slugValue)
+                    if (errors.author) setErrors((prev) => ({ ...prev, author: '' }))
+                  }}
+                  error={errors.author}
+                />
+              </FormField>
+
+              <FormField label="Category" required error={errors.category}>
+                <Select
+                  options={categoryOptions}
+                  value={category}
+                  onChange={(e) => {
+                    setCategory(e.target.value)
+                    if (errors.category) setErrors((prev) => ({ ...prev, category: '' }))
+                  }}
+                  placeholder="Select a category..."
+                  error={errors.category}
+                />
+              </FormField>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MetaToggle title="Featured post" description="Promote this story on high-visibility homepage slots." checked={featured} onChange={setFeatured} />
+                <MetaToggle title="Unlisted" description="Hide it from the public listing while keeping the route available." checked={unlisted} onChange={setUnlisted} />
+              </div>
+
+              <div className="elevated-divider" />
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">Assets</p>
+                <h2 className="font-display text-3xl text-text-primary">Attach optional inputs</h2>
+              </div>
+
+              <FormField label="Cover image" helperText="Optional. Select a cover image for the blog post.">
+                {coverPath ? (
+                  <div className="overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.03]">
+                    <div className="relative">
+                      <img src={`file://${coverPath}`} alt="Cover preview" className="h-52 w-full object-cover" onError={(e) => { ;(e.target as HTMLImageElement).style.display = 'none' }} />
+                      <div className="absolute right-3 top-3 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setCoverPath('')}
+                          className="rounded-2xl border border-white/10 bg-[#08111f]/90 p-2 text-text-secondary transition-colors duration-150 hover:text-danger"
+                          title="Remove cover image"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="border-t border-white/8 px-4 py-3 text-xs text-text-tertiary">{coverPath.split('/').pop()}</div>
+                  </div>
+                ) : (
+                  <Button variant="secondary" icon={ImageIcon} onClick={handleSelectCover}>
+                    Choose Image
+                  </Button>
+                )}
+              </FormField>
+
+              <FormField label="Notion import" helperText="Optional. Import content from a Notion export (.zip). The CLI will handle conversion.">
+                {notionZipPath ? (
+                  <div className="flex items-center gap-3 rounded-[14px] border border-white/10 bg-white/[0.03] px-4 py-3.5">
+                    <FileArchive size={18} className="shrink-0 text-accent" />
+                    <span className="flex-1 truncate text-sm text-text-primary">{notionZipPath.split('/').pop()}</span>
+                    <button type="button" onClick={() => setNotionZipPath('')} className="shrink-0 rounded-xl p-1 text-text-tertiary transition-colors hover:text-danger" title="Remove zip file">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <FileDropZone accept=".zip" onFile={setNotionZipPath} label="Drop a Notion export .zip here" icon={FileArchive} />
+                    <div className="flex items-center gap-3">
+                      <div className="elevated-divider flex-1" />
+                      <span className="text-xs uppercase tracking-[0.14em] text-text-tertiary">or</span>
+                      <div className="elevated-divider flex-1" />
+                    </div>
+                    <Button variant="secondary" size="sm" icon={FileArchive} onClick={handleSelectZip}>
+                      Browse for .zip
+                    </Button>
+                  </div>
+                )}
+              </FormField>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Button variant="primary" size="lg" loading={submitting} onClick={handleSubmit} disabled={submitting || !!slugTakenError} icon={FilePlus}>
+                  Create Blog Post
+                </Button>
+                <Button variant="ghost" size="lg" onClick={() => navigate('/dashboard/blogs')} disabled={submitting}>
+                  Cancel
+                </Button>
+              </div>
             </div>
-          )}
-        </FormField>
+          </SurfaceCard>
 
-        {/* CLI Output (visible during/after submission) */}
-        {cliOutput.length > 0 && (
-          <TerminalOutput lines={cliOutput} title="CLI Output" />
-        )}
+          <div className="space-y-4 xl:sticky xl:top-8 xl:self-start">
+            <SurfaceCard>
+              <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Live summary</p>
+              <h2 className="mt-2 font-display text-3xl text-text-primary">Story snapshot</h2>
+              <div className="mt-5 space-y-4 text-sm text-text-secondary">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Title</span>
+                  <span className="max-w-[12rem] truncate text-right text-text-primary">{title || 'Untitled draft'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Slug</span>
+                  <span className="muted-code">{slug || 'pending-slug'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Author</span>
+                  <span className="max-w-[10rem] truncate text-right text-text-primary">{selectedAuthor?.name ?? 'Unassigned'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Category</span>
+                  <span className="max-w-[10rem] truncate text-right text-text-primary">{selectedCategory?.name ?? 'Unassigned'}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Reading time</span>
+                  <span className="text-text-primary">{timeToRead} min</span>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {featured && <InfoPill>Featured</InfoPill>}
+                {unlisted && <InfoPill>Unlisted</InfoPill>}
+                {coverPath && <InfoPill>Cover attached</InfoPill>}
+                {notionZipPath && <InfoPill>Notion archive ready</InfoPill>}
+              </div>
+            </SurfaceCard>
 
-        {/* Error state after submission */}
-        {submitResult === 'error' && (
-          <div className="bg-danger-muted border border-danger/20 rounded-lg p-4">
-            <p className="text-sm text-danger font-medium">Failed to create blog post</p>
-            <p className="text-xs text-text-secondary mt-1">
-              Check the CLI output above for details, or try again.
-            </p>
+            <SurfaceCard>
+              <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Guidance</p>
+              <ul className="mt-4 space-y-3 text-sm leading-7 text-text-secondary">
+                <li>Keep the slug stable once you share links externally.</li>
+                <li>Use featured only when the story deserves homepage emphasis.</li>
+                <li>Attach a Notion archive if you want the CLI to seed content immediately.</li>
+              </ul>
+            </SurfaceCard>
           </div>
-        )}
-
-        {/* Submit */}
-        <div className="flex items-center gap-3 pt-2 pb-4">
-          <Button
-            variant="primary"
-            size="lg"
-            loading={submitting}
-            onClick={handleSubmit}
-            disabled={submitting || !!slugTakenError}
-            icon={FilePlus}
-          >
-            Create Blog Post
-          </Button>
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={() => navigate('/dashboard/blogs')}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
         </div>
+
+        {cliOutput.length > 0 && <TerminalOutput lines={cliOutput} title="Create Blog" />}
+
+        {submitResult === 'error' && (
+          <SurfaceCard className="border-danger/20 bg-danger-muted/80">
+            <p className="text-sm font-medium text-danger">Failed to create blog post</p>
+            <p className="mt-2 text-sm leading-7 text-text-secondary">Check the CLI output above for details, then correct the inputs and try again.</p>
+          </SurfaceCard>
+        )}
       </div>
-    </div>
+    </PageScaffold>
   )
 }

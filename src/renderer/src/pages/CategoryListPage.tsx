@@ -2,28 +2,21 @@ import { Tag, Info } from 'lucide-react'
 import { DataTable } from '../components/shared/DataTable'
 import { Spinner } from '../components/ui/Spinner'
 import { useCategories } from '../hooks/useCategories'
+import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import type { Category } from '../types'
-
-/* ─── Column Definitions ─── */
 
 const columns = [
   {
     key: 'name',
     label: 'Name',
     sortable: true,
-    render: (value: unknown): React.ReactNode => (
-      <span className="font-medium text-text-primary">{String(value)}</span>
-    )
+    render: (value: unknown): React.ReactNode => <span className="font-medium text-text-primary">{String(value)}</span>
   },
   {
     key: 'slug',
     label: 'Slug',
     sortable: true,
-    render: (value: unknown): React.ReactNode => (
-      <code className="px-1.5 py-0.5 rounded bg-bg-secondary text-xs font-mono text-text-secondary">
-        {String(value)}
-      </code>
-    )
+    render: (value: unknown): React.ReactNode => <code className="muted-code">{String(value)}</code>
   },
   {
     key: 'description',
@@ -32,52 +25,49 @@ const columns = [
   }
 ]
 
-/* ─── Page ─── */
-
 export default function CategoryListPage(): React.JSX.Element {
   const { categories, loading, error } = useCategories()
 
   return (
-    <div className="p-8 animate-fade-in space-y-8">
-      {/* Page Header */}
-      <div className="flex items-start gap-4">
-        <div className="flex items-center justify-center w-11 h-11 rounded-full bg-warning-muted shrink-0">
-          <Tag size={20} strokeWidth={1.8} className="text-warning" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">Categories</h1>
-          <p className="mt-1.5 text-sm text-text-secondary leading-relaxed">
-            All blog categories defined in the website repository.
-          </p>
-        </div>
-      </div>
-
-      {/* Info Banner */}
-      <div className="flex items-start gap-3 p-4 rounded-lg bg-bg-secondary border border-border-primary">
-        <Info size={18} className="text-text-tertiary shrink-0 mt-0.5" />
-        <p className="text-sm text-text-secondary leading-relaxed">
-          Categories are managed directly in the website repository. This page is read-only for
-          reference.
-        </p>
-      </div>
-
-      {/* Content */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <Spinner size="lg" />
-          <p className="text-sm text-text-tertiary">Loading categories...</p>
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-2">
-          <p className="text-sm text-danger">{error}</p>
-        </div>
-      ) : (
-        <DataTable<Category & Record<string, unknown>>
-          columns={columns}
-          data={categories as (Category & Record<string, unknown>)[]}
-          searchKeys={['name', 'slug', 'description']}
+    <PageScaffold>
+      <div className="space-y-8">
+        <PageIntro
+          eyebrow="Taxonomy"
+          title="Repository categories, mapped cleanly."
+          description="A read-only reference of the category definitions currently sourced from the website repository."
+          meta={<InfoPill>{loading ? 'Loading categories' : `${categories.length} categories loaded`}</InfoPill>}
         />
-      )}
-    </div>
+
+        <SurfaceCard className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan/20 bg-cyan-muted text-cyan">
+            <Info size={20} strokeWidth={1.8} />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Read only</p>
+            <h2 className="mt-2 font-display text-2xl text-text-primary">Managed in the repo</h2>
+            <p className="mt-2 text-sm leading-7 text-text-secondary">
+              Categories are authored directly inside the website codebase. This screen mirrors the current source of truth for quick inspection.
+            </p>
+          </div>
+        </SurfaceCard>
+
+        {loading ? (
+          <SurfaceCard className="flex flex-col items-center justify-center py-16">
+            <Spinner size="lg" className="text-cyan" />
+            <p className="mt-4 text-sm text-text-secondary">Loading categories...</p>
+          </SurfaceCard>
+        ) : error ? (
+          <SurfaceCard className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-danger/20 bg-danger-muted text-danger">
+              <Tag size={24} strokeWidth={1.8} />
+            </div>
+            <p className="mt-4 text-sm font-medium text-danger">Failed to load categories</p>
+            <p className="mt-2 max-w-md text-sm leading-7 text-text-secondary">{error}</p>
+          </SurfaceCard>
+        ) : (
+          <DataTable<Category & Record<string, unknown>> columns={columns} data={categories as (Category & Record<string, unknown>)[]} searchKeys={['name', 'slug', 'description']} />
+        )}
+      </div>
+    </PageScaffold>
   )
 }

@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 
-/* ─── Types ─── */
-
 interface Column<T> {
   key: string
   label: string
@@ -20,8 +18,6 @@ interface DataTableProps<T extends Record<string, unknown>> {
 
 type SortDir = 'asc' | 'desc'
 
-/* ─── Component ─── */
-
 export function DataTable<T extends Record<string, unknown>>({
   columns,
   data,
@@ -34,7 +30,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
   const handleSort = (key: string): void => {
     if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'))
     } else {
       setSortKey(key)
       setSortDir('asc')
@@ -46,8 +42,8 @@ export function DataTable<T extends Record<string, unknown>>({
     const query = search.toLowerCase()
     return data.filter((row) =>
       searchKeys.some((key) => {
-        const val = row[key]
-        return val != null && String(val).toLowerCase().includes(query)
+        const value = row[key]
+        return value != null && String(value).toLowerCase().includes(query)
       })
     )
   }, [data, search, searchKeys])
@@ -63,58 +59,49 @@ export function DataTable<T extends Record<string, unknown>>({
 
       const aStr = String(aVal).toLowerCase()
       const bStr = String(bVal).toLowerCase()
-      const cmp = aStr.localeCompare(bStr, undefined, { numeric: true })
-      return sortDir === 'asc' ? cmp : -cmp
+      const comparison = aStr.localeCompare(bStr, undefined, { numeric: true })
+      return sortDir === 'asc' ? comparison : -comparison
     })
-  }, [filtered, sortKey, sortDir])
+  }, [filtered, sortDir, sortKey])
 
   return (
-    <div className="rounded-lg border border-border-primary bg-bg-elevated overflow-hidden">
-      {/* Search bar */}
+    <div className="overflow-hidden rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgba(24,24,28,0.96),rgba(12,12,14,0.98))] shadow-[0_22px_54px_rgba(0,0,0,0.26)]">
       {searchKeys.length > 0 && (
-        <div className="px-4 py-3 border-b border-border-primary">
-          <div className="relative max-w-xs">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
-            />
+        <div className="flex flex-col gap-4 border-b border-white/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-text-tertiary">Search</p>
+            <p className="mt-1 text-sm text-text-secondary">Filter the dataset in place.</p>
+          </div>
+          <div className="relative w-full max-w-sm">
+            <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search..."
-              className={clsx(
-                'w-full pl-9 pr-3 py-2',
-                'text-sm bg-bg-secondary rounded-md',
-                'border border-border-primary',
-                'focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-                'placeholder:text-text-tertiary',
-                'transition-all duration-200'
-              )}
+              className="w-full rounded-[12px] border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-text-primary focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none"
             />
           </div>
         </div>
       )}
-
-      {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="min-w-full border-collapse">
           <thead>
-            <tr className="border-b border-border-primary bg-bg-secondary/50">
-              {columns.map((col) => (
+            <tr className="border-b border-white/8 bg-white/[0.03]">
+              {columns.map((column) => (
                 <th
-                  key={col.key}
+                  key={column.key}
                   className={clsx(
-                    'px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wide',
-                    col.sortable && 'cursor-pointer select-none hover:text-text-primary transition-colors duration-150'
+                    'px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.22em] text-text-tertiary',
+                    column.sortable && 'cursor-pointer select-none transition-colors duration-150 hover:text-text-primary'
                   )}
-                  onClick={col.sortable ? () => handleSort(col.key) : undefined}
+                  onClick={column.sortable ? () => handleSort(column.key) : undefined}
                 >
-                  <span className="inline-flex items-center gap-1.5">
-                    {col.label}
-                    {col.sortable && (
-                      <span className="text-text-tertiary">
-                        {sortKey === col.key ? (
+                  <span className="inline-flex items-center gap-2">
+                    {column.label}
+                    {column.sortable && (
+                      <span className="text-text-muted">
+                        {sortKey === column.key ? (
                           sortDir === 'asc' ? (
                             <ArrowUp size={13} />
                           ) : (
@@ -133,10 +120,7 @@ export function DataTable<T extends Record<string, unknown>>({
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-10 text-center text-sm text-text-tertiary"
-                >
+                <td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-text-tertiary">
                   {search ? 'No matching results' : 'No data available'}
                 </td>
               </tr>
@@ -146,23 +130,13 @@ export function DataTable<T extends Record<string, unknown>>({
                   key={rowIndex}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={clsx(
-                    'border-b border-border-primary/60 last:border-0',
-                    'transition-colors duration-100',
-                    onRowClick
-                      ? 'cursor-pointer hover:bg-bg-hover active:bg-bg-tertiary'
-                      : 'hover:bg-bg-secondary/30'
+                    'border-b border-white/6 last:border-0 transition-colors duration-150',
+                    onRowClick ? 'cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.05]' : 'hover:bg-white/[0.025]'
                   )}
                 >
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      className="px-4 py-3 text-sm text-text-primary"
-                    >
-                      {col.render
-                        ? col.render(row[col.key], row)
-                        : row[col.key] != null
-                          ? String(row[col.key])
-                          : '\u2014'}
+                  {columns.map((column) => (
+                    <td key={column.key} className="px-4 py-3.5 align-top text-sm text-text-primary">
+                      {column.render ? column.render(row[column.key], row) : row[column.key] != null ? String(row[column.key]) : '\u2014'}
                     </td>
                   ))}
                 </tr>
@@ -171,13 +145,9 @@ export function DataTable<T extends Record<string, unknown>>({
           </tbody>
         </table>
       </div>
-
-      {/* Footer info */}
-      <div className="px-4 py-2.5 border-t border-border-primary bg-bg-secondary/30">
-        <p className="text-xs text-text-tertiary">
-          {sorted.length} {sorted.length === 1 ? 'item' : 'items'}
-          {search && ` matching "${search}"`}
-        </p>
+      <div className="border-t border-white/8 bg-white/[0.03] px-4 py-2.5 text-xs text-text-tertiary">
+        {sorted.length} {sorted.length === 1 ? 'item' : 'items'}
+        {search && ` matching "${search}"`}
       </div>
     </div>
   )

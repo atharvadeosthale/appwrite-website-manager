@@ -34,7 +34,6 @@ export function BlogSelector({
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent): void {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -45,7 +44,6 @@ export function BlogSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Focus search input when dropdown opens
   useEffect(() => {
     if (open && inputRef.current) {
       inputRef.current.focus()
@@ -55,11 +53,7 @@ export function BlogSelector({
   const filtered = useMemo(() => {
     if (!search.trim()) return blogs
     const query = search.toLowerCase()
-    return blogs.filter(
-      (blog) =>
-        blog.title.toLowerCase().includes(query) ||
-        blog.slug.toLowerCase().includes(query)
-    )
+    return blogs.filter((blog) => blog.title.toLowerCase().includes(query) || blog.slug.toLowerCase().includes(query))
   }, [blogs, search])
 
   const handleSelect = (blog: Blog): void => {
@@ -74,113 +68,75 @@ export function BlogSelector({
   }
 
   return (
-    <div className="flex flex-col gap-1.5" ref={containerRef}>
-      {label && (
-        <label className="text-sm font-medium text-text-primary select-none">
-          {label}
-        </label>
-      )}
-
-      {/* Trigger button */}
+    <div className="flex flex-col gap-2" ref={containerRef}>
+      {label && <label className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">{label}</label>}
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => setOpen((current) => !current)}
         className={clsx(
-          'w-full flex items-center gap-3 text-left',
-          'bg-bg-elevated rounded-md',
-          'border px-3 py-2.5 text-sm',
-          'transition-all duration-200',
-          'cursor-pointer',
-          open
-            ? 'border-accent shadow-[0_0_0_3px_var(--color-accent-muted)]'
-            : 'border-border-primary hover:border-border-secondary',
-          'focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]'
+          'w-full rounded-[12px] border px-4 py-2.5 text-left transition-all duration-200',
+          'bg-[linear-gradient(180deg,rgba(24,24,28,0.94),rgba(15,15,18,0.9))]',
+          open ? 'border-white/18 shadow-[0_0_0_3px_rgba(255,255,255,0.05)]' : 'border-white/10 hover:border-white/18'
         )}
       >
-        {selected ? (
-          <div className="flex-1 flex items-center gap-3 min-w-0">
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-accent-muted shrink-0">
-              <FileText size={15} className="text-accent" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-text-primary truncate">{selected.title}</p>
-              <p className="text-xs text-text-tertiary truncate">
-                {selected.slug} &middot; {formatDate(selected.date)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleClear()
-              }}
-              className="shrink-0 p-1 rounded-sm text-text-tertiary hover:text-text-secondary hover:bg-bg-hover transition-colors duration-150 cursor-pointer"
-              aria-label="Clear selection"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ) : (
-          <span className="flex-1 text-text-tertiary">Choose a blog post...</span>
-        )}
-        <ChevronDown
-          size={16}
-          className={clsx(
-            'shrink-0 text-text-tertiary transition-transform duration-200',
-            open && 'rotate-180'
+        <div className="flex items-center gap-3">
+          {selected ? (
+            <>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-accent-muted text-accent">
+                <FileText size={18} strokeWidth={1.8} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-text-primary">{selected.title}</p>
+                <p className="truncate text-xs text-text-tertiary">{selected.slug} • {formatDate(selected.date)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleClear()
+                }}
+                className="rounded-xl p-2 text-text-tertiary transition-colors duration-150 hover:bg-white/[0.05] hover:text-text-primary"
+                aria-label="Clear selection"
+              >
+                <X size={14} />
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.04] text-text-secondary">
+                <FileText size={18} strokeWidth={1.8} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-text-primary">Choose a blog post</p>
+                <p className="text-xs text-text-tertiary">Search title, slug, or publish date</p>
+              </div>
+            </>
           )}
-        />
+          <ChevronDown size={18} className={clsx('shrink-0 text-text-tertiary transition-transform duration-200', open && 'rotate-180')} />
+        </div>
       </button>
 
-      {/* Dropdown */}
       {open && (
-        <div
-          className={clsx(
-            'relative z-20',
-            'bg-bg-elevated rounded-lg',
-            'border border-border-primary',
-            'shadow-lg',
-            'overflow-hidden',
-            'animate-scale-in'
-          )}
-        >
-          {/* Search input */}
-          <div className="p-2.5 border-b border-border-primary">
+        <div className="relative z-20 overflow-hidden rounded-[16px] border border-white/10 bg-[linear-gradient(180deg,rgba(26,26,30,0.98),rgba(12,12,14,0.98))] shadow-[0_24px_70px_rgba(3,7,18,0.38)] animate-scale-in">
+          <div className="border-b border-white/8 p-3">
             <div className="relative">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
-              />
+              <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" />
               <input
                 ref={inputRef}
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={placeholder}
-                className={clsx(
-                  'w-full pl-9 pr-3 py-2',
-                  'text-sm bg-bg-secondary rounded-md',
-                  'border border-border-primary',
-                  'focus:outline-none focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)]',
-                  'placeholder:text-text-tertiary',
-                  'transition-all duration-200'
-                )}
+                className="w-full rounded-[12px] border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-4 text-sm text-text-primary focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none"
               />
             </div>
           </div>
-
-          {/* Options list */}
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto p-2">
             {loading ? (
-              <div className="px-4 py-8 text-center">
-                <span className="inline-block h-5 w-5 border-2 border-accent border-r-transparent rounded-full animate-spin" />
-                <p className="mt-2 text-xs text-text-tertiary">Loading blog posts...</p>
-              </div>
+              <div className="px-4 py-10 text-center text-sm text-text-secondary">Loading blog posts...</div>
             ) : filtered.length === 0 ? (
-              <div className="px-4 py-8 text-center">
-                <p className="text-sm text-text-tertiary">
-                  {search ? 'No matching blog posts' : 'No blog posts available'}
-                </p>
+              <div className="px-4 py-10 text-center text-sm text-text-tertiary">
+                {search ? 'No matching blog posts' : 'No blog posts available'}
               </div>
             ) : (
               filtered.map((blog) => {
@@ -191,47 +147,28 @@ export function BlogSelector({
                     type="button"
                     onClick={() => handleSelect(blog)}
                     className={clsx(
-                      'w-full flex items-center gap-3 px-3 py-2.5 text-left',
-                      'transition-colors duration-100',
-                      'cursor-pointer',
-                      isSelected
-                        ? 'bg-accent-muted'
-                        : 'hover:bg-bg-hover active:bg-bg-tertiary'
+                      'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors duration-150',
+                      isSelected ? 'bg-accent-muted/90' : 'hover:bg-white/[0.05]'
                     )}
                   >
-                    <div className={clsx(
-                      'flex items-center justify-center w-8 h-8 rounded-lg shrink-0',
-                      isSelected ? 'bg-accent/10' : 'bg-bg-tertiary'
-                    )}>
-                      <FileText
-                        size={15}
-                        className={isSelected ? 'text-accent' : 'text-text-tertiary'}
-                      />
+                    <div className={clsx('flex h-10 w-10 items-center justify-center rounded-2xl border border-white/8', isSelected ? 'bg-accent/12 text-accent' : 'bg-white/[0.04] text-text-secondary')}>
+                      <FileText size={16} strokeWidth={1.8} />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={clsx(
-                        'text-sm truncate',
-                        isSelected ? 'font-semibold text-accent' : 'font-medium text-text-primary'
-                      )}>
+                    <div className="min-w-0 flex-1">
+                      <p className={clsx('truncate text-sm font-medium', isSelected ? 'text-accent' : 'text-text-primary')}>
                         {blog.title}
                       </p>
-                      <p className="text-xs text-text-tertiary truncate">
-                        {blog.slug} &middot; {formatDate(blog.date)}
-                      </p>
+                      <p className="truncate text-xs text-text-tertiary">{blog.slug} • {formatDate(blog.date)}</p>
                     </div>
                   </button>
                 )
               })
             )}
           </div>
-
-          {/* Footer count */}
           {!loading && (
-            <div className="px-3 py-2 border-t border-border-primary bg-bg-secondary/30">
-              <p className="text-xs text-text-tertiary">
-                {filtered.length} {filtered.length === 1 ? 'post' : 'posts'}
-                {search && ` matching "${search}"`}
-              </p>
+            <div className="border-t border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-text-tertiary">
+              {filtered.length} {filtered.length === 1 ? 'post' : 'posts'}
+              {search && ` matching "${search}"`}
             </div>
           )}
         </div>

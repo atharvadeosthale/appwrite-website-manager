@@ -37,7 +37,6 @@ export function FileDropZone({
     const file = e.dataTransfer.files[0]
     if (!file) return
 
-    // Check extension filter
     if (accept) {
       const extensions = accept.split(',').map((ext) => ext.trim().toLowerCase())
       const fileName = file.name.toLowerCase()
@@ -45,7 +44,6 @@ export function FileDropZone({
       if (!matches) return
     }
 
-    // Electron exposes native path on File objects
     const filePath = (file as File & { path?: string }).path
     if (filePath) {
       onFile(filePath)
@@ -53,7 +51,6 @@ export function FileDropZone({
   }
 
   const handleClick = (): void => {
-    // Create a temporary file input to open native file picker
     const input = document.createElement('input')
     input.type = 'file'
     if (accept) input.accept = accept
@@ -84,39 +81,30 @@ export function FileDropZone({
         }
       }}
       className={clsx(
-        'relative flex flex-col items-center justify-center gap-3',
-        'p-8 rounded-lg',
-        'border-2 border-dashed',
-        'cursor-pointer select-none',
-        'transition-all duration-200',
-        'focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2',
+        'group relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-[16px] border border-dashed p-6 text-center',
+        'transition-all duration-200 ease-out cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/20',
         isDragging
-          ? 'border-accent bg-accent-muted scale-[1.01]'
-          : 'border-border-secondary bg-bg-secondary/50 hover:border-border-secondary hover:bg-bg-hover'
+          ? 'border-white/18 bg-white/[0.06] shadow-[0_20px_48px_rgba(0,0,0,0.24)]'
+          : 'border-white/12 bg-[linear-gradient(180deg,rgba(24,24,28,0.92),rgba(12,12,14,0.98))] hover:border-white/18 hover:bg-[linear-gradient(180deg,rgba(29,29,34,0.94),rgba(14,14,18,0.98))]'
       )}
     >
+      <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-white/14 to-transparent opacity-70" />
       <div
         className={clsx(
-          'p-3 rounded-full transition-colors duration-200',
-          isDragging ? 'bg-accent/10 text-accent' : 'bg-bg-tertiary text-text-tertiary'
+          'flex h-14 w-14 items-center justify-center rounded-[14px] border border-white/10 transition-all duration-200',
+          isDragging ? 'bg-white/[0.08] text-text-primary animate-glow-pulse' : 'bg-white/[0.05] text-text-secondary group-hover:text-text-primary'
         )}
       >
-        <Icon size={24} />
+        <Icon size={24} strokeWidth={1.8} />
       </div>
-      <div className="text-center">
-        <p
-          className={clsx(
-            'text-sm font-medium transition-colors duration-200',
-            isDragging ? 'text-accent' : 'text-text-secondary'
-          )}
-        >
-          {isDragging ? 'Drop to upload' : label}
+      <div className="space-y-2">
+        <p className="font-display text-lg tracking-[-0.03em] text-text-primary transition-colors duration-200">
+          {isDragging ? 'Release to upload' : label}
         </p>
-        {accept && (
-          <p className="mt-1 text-xs text-text-tertiary">
-            Accepted: {accept}
-          </p>
-        )}
+        <p className="text-sm leading-6 text-text-secondary">
+          Native file import with path preservation.
+        </p>
+        {accept && <p className="text-xs uppercase tracking-[0.16em] text-text-tertiary">Accepted: {accept}</p>}
       </div>
     </div>
   )

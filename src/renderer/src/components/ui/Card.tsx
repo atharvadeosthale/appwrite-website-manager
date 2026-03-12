@@ -8,24 +8,18 @@ interface CardProps {
 
 export function Card({ children, className, onClick }: CardProps): React.JSX.Element {
   const isClickable = !!onClick
-
   const Component = isClickable ? 'button' : 'div'
 
   return (
     <Component
       onClick={onClick}
       className={clsx(
-        'bg-bg-elevated rounded-lg shadow-sm',
-        'border border-border-primary',
-        'p-5',
-        'text-left w-full',
+        'surface-panel ambient-card w-full rounded-[18px] p-4 text-left',
         isClickable && [
-          'cursor-pointer',
-          'transition-all duration-200',
-          'hover:shadow-md hover:border-border-secondary',
-          'hover:-translate-y-0.5',
-          'active:translate-y-0 active:shadow-sm',
-          'focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+          'cursor-pointer transition-all duration-200 ease-out',
+          'hover:-translate-y-0.5 hover:border-white/14 hover:shadow-[0_18px_40px_rgba(0,0,0,0.32)]',
+          'active:translate-y-0 active:shadow-[0_10px_28px_rgba(0,0,0,0.24)]',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/20'
         ],
         className
       )}
