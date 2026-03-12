@@ -209,18 +209,17 @@ export function AuthorForm({ onSubmit, loading = false, existingSlugs = [] }: Au
   // We expose a reset via a key-based approach — parent remounts the component
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      <div className="space-y-2">
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-1.5">
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">
           Basic information
         </p>
-        <h2 className="font-display text-3xl text-text-primary">Core profile</h2>
-        <p className="text-sm leading-7 text-text-secondary">
+        <p className="text-sm leading-6 text-text-secondary">
           Set the visible name, slug, role, and short bio for this author.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Name" required error={errors.name}>
           <Input
             ref={nameInputRef}
@@ -271,27 +270,26 @@ export function AuthorForm({ onSubmit, loading = false, existingSlugs = [] }: Au
           placeholder="Tell readers a little about this author..."
           rows={3}
           disabled={loading}
-          className="min-h-[110px] w-full resize-y rounded-[12px] border border-white/10 bg-[linear-gradient(180deg,rgba(22,22,26,0.94),rgba(14,14,18,0.9))] px-4 py-3 text-sm leading-7 text-text-primary placeholder:text-text-tertiary transition-all duration-200 hover:border-white/16 focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-text-tertiary"
+          className="min-h-[96px] w-full resize-y rounded-[12px] border border-white/10 bg-[linear-gradient(180deg,rgba(22,22,26,0.94),rgba(14,14,18,0.9))] px-4 py-2.5 text-sm leading-6 text-text-primary placeholder:text-text-tertiary transition-all duration-200 hover:border-white/16 focus:border-white/18 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] focus:outline-none disabled:cursor-not-allowed disabled:bg-white/[0.03] disabled:text-text-tertiary"
         />
       </FormField>
 
       <div className="elevated-divider" />
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">
           Avatar
         </p>
-        <h2 className="font-display text-3xl text-text-primary">Visual identity</h2>
-        <p className="text-sm leading-7 text-text-secondary">
+        <p className="text-sm leading-6 text-text-secondary">
           Add a face to the profile so the author card looks polished in previews and production.
         </p>
       </div>
 
-      <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-5">
-        <div className="flex items-start gap-5">
+      <div className="rounded-[16px] border border-white/8 bg-white/[0.03] p-4">
+        <div className="flex items-start gap-4">
         {form.avatar ? (
           <div className="relative group">
-            <div className="h-24 w-24 overflow-hidden rounded-[16px] border border-white/10 bg-[#0b0b0d] shadow-[0_20px_48px_rgba(3,7,18,0.32)]">
+            <div className="h-20 w-20 overflow-hidden rounded-[14px] border border-white/10 bg-[#0b0b0d] shadow-[0_20px_48px_rgba(3,7,18,0.32)]">
               <img
                 src={`file://${form.avatar}`}
                 alt="Avatar preview"
@@ -302,7 +300,7 @@ export function AuthorForm({ onSubmit, loading = false, existingSlugs = [] }: Au
               type="button"
               onClick={handleRemoveAvatar}
               disabled={loading}
-              className="absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-[#08111f] text-text-tertiary opacity-0 transition-all duration-200 hover:border-danger/30 hover:text-danger group-hover:opacity-100 cursor-pointer"
+              className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-[#08111f] text-text-tertiary opacity-0 transition-all duration-200 hover:border-danger/30 hover:text-danger group-hover:opacity-100 cursor-pointer"
               aria-label="Remove avatar"
             >
               <X size={12} strokeWidth={2.5} />
@@ -313,15 +311,15 @@ export function AuthorForm({ onSubmit, loading = false, existingSlugs = [] }: Au
             type="button"
             onClick={handleSelectAvatar}
             disabled={loading}
-            className="flex h-24 w-24 flex-col items-center justify-center gap-2 rounded-[16px] border border-dashed border-white/14 bg-white/[0.03] text-text-tertiary transition-all duration-200 hover:border-cyan/30 hover:bg-cyan-muted/40 hover:text-cyan cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-20 w-20 flex-col items-center justify-center gap-1.5 rounded-[14px] border border-dashed border-white/14 bg-white/[0.03] text-text-tertiary transition-all duration-200 hover:border-cyan/30 hover:bg-cyan-muted/40 hover:text-cyan cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <ImagePlus size={20} strokeWidth={1.5} />
+            <ImagePlus size={18} strokeWidth={1.5} />
             <span className="text-[10px] font-medium uppercase tracking-[0.14em]">Choose</span>
           </button>
         )}
 
-        <div className="flex-1 pt-1">
-          <p className="text-sm text-text-secondary leading-7">
+        <div className="flex-1 pt-0.5">
+          <p className="text-sm leading-6 text-text-secondary">
             {form.avatar
               ? 'Looking good! The CLI will copy this image into the repository.'
               : 'Click to select an image from your computer. Square images work best.'}
@@ -337,20 +335,19 @@ export function AuthorForm({ onSubmit, loading = false, existingSlugs = [] }: Au
 
       <div className="elevated-divider" />
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-center gap-2">
           <LinkIcon size={14} className="text-text-tertiary" />
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">
             Social links
           </p>
         </div>
-        <h2 className="font-display text-3xl text-text-primary">Public presence</h2>
-        <p className="text-sm leading-7 text-text-secondary">
+        <p className="text-sm leading-6 text-text-secondary">
           Optional destination URLs shown on the author card and profile preview.
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <FormField label="Twitter / X" error={errors.twitter}>
           <Input
             type="url"
@@ -391,7 +388,7 @@ export function AuthorForm({ onSubmit, loading = false, existingSlugs = [] }: Au
         <Button
           type="submit"
           variant="primary"
-          size="lg"
+          size="md"
           loading={loading}
           disabled={loading || !!slugTakenError}
           className="w-full sm:w-auto"
