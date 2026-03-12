@@ -41,7 +41,9 @@ function spawnWithStreaming(
     let output = ''
 
     const proc = spawn(command, args, {
-      shell: true,
+      // Keep shell disabled so argv is passed exactly (important for `bash -c "..."`
+      // installers, which can misbehave with shell wrapping).
+      shell: false,
       env: { ...process.env, ...extraEnv }
     })
 
@@ -405,6 +407,7 @@ export function registerSetupHandlers(): void {
       let result: { success: boolean; error?: string; output?: string }
 
       if (process.platform === 'darwin' || process.platform === 'linux') {
+        event.sender.send('setup:output', 'Running Claude Code installer...\n')
         result = await spawnWithStreaming(
           'bash',
           ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'],
@@ -531,6 +534,7 @@ export function registerSetupHandlers(): void {
       if (!claudeInstalled) {
         event.sender.send('setup:output', '\n── Installing Claude Code ──\n')
         if (process.platform === 'darwin' || process.platform === 'linux') {
+          event.sender.send('setup:output', 'Running Claude Code installer...\n')
           const result = await spawnWithStreaming(
             'bash',
             ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'],

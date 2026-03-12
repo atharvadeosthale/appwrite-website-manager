@@ -18,7 +18,6 @@ import {
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
-import { TerminalOutput } from '../components/shared/TerminalOutput'
 import { useSetupStatus } from '../hooks/useSetupStatus'
 import type { PrerequisiteStatus, InstallResult } from '../types'
 
@@ -120,7 +119,6 @@ function GhAuthPanel({
 function PrerequisiteCard({
   prereq,
   installing,
-  terminalLines,
   authingGh,
   ghCode,
   disabled,
@@ -131,7 +129,6 @@ function PrerequisiteCard({
 }: {
   prereq: PrerequisiteStatus
   installing: boolean
-  terminalLines: string[]
   authingGh: boolean
   ghCode: string | null
   disabled: boolean
@@ -217,13 +214,6 @@ function PrerequisiteCard({
           </div>
         </div>
 
-        {/* Terminal output during installation */}
-        {installing && terminalLines.length > 0 && (
-          <div className="mt-3 animate-fade-in">
-            <TerminalOutput lines={terminalLines} title={`Installing ${meta.label}`} />
-          </div>
-        )}
-
         {prereq.id === 'gh' && authingGh && (
           <GhAuthPanel code={ghCode} onCancel={onCancelAuth} />
         )}
@@ -240,7 +230,6 @@ export default function SetupWizardPage(): React.JSX.Element {
 
   const [installingId, setInstallingId] = useState<PrerequisiteStatus['id'] | null>(null)
   const [installingAll, setInstallingAll] = useState(false)
-  const [terminalLines, setTerminalLines] = useState<string[]>([])
   const [ghCode, setGhCode] = useState<string | null>(null)
   const [authingGh, setAuthingGh] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -251,10 +240,6 @@ export default function SetupWizardPage(): React.JSX.Element {
   /* ── Event listeners ── */
 
   useEffect(() => {
-    window.api.onSetupOutput((line: string) => {
-      setTerminalLines((prev) => [...prev, line])
-    })
-
     window.api.onSetupGhCode((code: string) => {
       setGhCode(code)
     })
@@ -281,17 +266,11 @@ export default function SetupWizardPage(): React.JSX.Element {
     async (id: PrerequisiteStatus['id']) => {
       setError(null)
       setInstallingId(id)
-      setTerminalLines([])
 
       try {
         const result = await INSTALL_FNS[id]()
         if (!result.success) {
           setError(result.error ?? `Failed to install ${TOOL_META[id].label}.`)
-        }
-        // xcode-select --install on macOS returns immediately (fire-and-forget)
-        // Show the output message so the user knows to follow the Apple dialog
-        if (id === 'git' && result.output && status?.platform === 'darwin') {
-          setTerminalLines([result.output])
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Installation failed unexpectedly.')
@@ -300,7 +279,7 @@ export default function SetupWizardPage(): React.JSX.Element {
         await recheck()
       }
     },
-    [recheck, status?.platform]
+    [recheck]
   )
 
   /* ── GH auth handler ── */
@@ -338,7 +317,6 @@ export default function SetupWizardPage(): React.JSX.Element {
   const handleInstallAll = useCallback(async () => {
     setError(null)
     setInstallingAll(true)
-    setTerminalLines([])
 
     try {
       const result = await window.api.setupInstallAll()
@@ -422,7 +400,6 @@ export default function SetupWizardPage(): React.JSX.Element {
                   key={prereq.id}
                   prereq={prereq}
                   installing={installingId === prereq.id}
-                  terminalLines={installingId === prereq.id ? terminalLines : []}
                   authingGh={authingGh}
                   ghCode={ghCode}
                   disabled={needsGitFirst || (busy && installingId !== prereq.id)}
@@ -448,11 +425,6 @@ export default function SetupWizardPage(): React.JSX.Element {
               >
                 {installingAll ? 'Installing...' : `Install All (${uninstalledNonGit.length} tools)`}
               </Button>
-              {installingAll && terminalLines.length > 0 && (
-                <div className="mt-3 animate-fade-in">
-                  <TerminalOutput lines={terminalLines} title="Installing all tools" />
-                </div>
-              )}
             </div>
           )}
 
