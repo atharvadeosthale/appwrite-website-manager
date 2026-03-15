@@ -6,6 +6,7 @@ export function fixPath(): void {
   const home = process.env.HOME || ''
   // Always add common tool locations
   const extraPaths = [
+    `${home}/.local/bin`,
     `${home}/.bun/bin`,
     '/opt/homebrew/bin',
     '/opt/homebrew/sbin',
@@ -27,7 +28,9 @@ export function fixPath(): void {
     )
     const match = output.match(new RegExp(`${marker}(.+?)${marker}`))
     if (match && match[1]) {
-      process.env.PATH = match[1]
+      // Even when shell PATH resolves, keep guaranteed tool paths merged in.
+      const merged = new Set([...match[1].split(':'), ...extraPaths])
+      process.env.PATH = [...merged].filter(Boolean).join(':')
       return
     }
   } catch {

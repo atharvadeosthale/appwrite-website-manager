@@ -204,6 +204,61 @@ function setupBrewPath(): void {
   fixPath()
 }
 
+function resolveDefaultRcFile(home: string): string {
+  const shell = process.env.SHELL || ''
+  const hasOhMyZsh = existsSync(join(home, '.oh-my-zsh'))
+
+  if (shell.includes('zsh') || hasOhMyZsh) return join(home, '.zshrc')
+  if (shell.includes('bash')) return join(home, '.bashrc')
+
+  const fallbackCandidates = [
+    join(home, '.bashrc'),
+    join(home, '.profile'),
+    join(home, '.bash_profile'),
+    join(home, '.zshrc')
+  ]
+  const existing = fallbackCandidates.find((file) => existsSync(file))
+  return existing || join(home, '.bashrc')
+}
+
+/**
+ * Persist Claude's bin directory to a shell rc file (zsh/bash) and apply it
+ * to the current process PATH immediately.
+ */
+function configureClaudePath(event: IpcMainInvokeEvent): { success: boolean; error?: string } {
+  if (process.platform === 'win32') return { success: true }
+
+  const home = process.env.HOME || ''
+  if (!home) return { success: false, error: 'HOME is not set' }
+
+  const rcFile = resolveDefaultRcFile(home)
+  const exportLine = 'export PATH="$HOME/.local/bin:$PATH"'
+  const localBin = `${home}/.local/bin`
+
+  try {
+    const existing = existsSync(rcFile) ? readFileSync(rcFile, 'utf-8') : ''
+    const hasPathExport = existing.includes('$HOME/.local/bin') || existing.includes('~/.local/bin')
+
+    if (!hasPathExport) {
+      const needsLeadingNewline = existing.length > 0 && !existing.endsWith('\n')
+      appendFileSync(rcFile, `${needsLeadingNewline ? '\n' : ''}${exportLine}\n`)
+      event.sender.send('setup:output', `Added Claude PATH export to ${rcFile}\n`)
+    } else {
+      event.sender.send('setup:output', `Claude PATH export already present in ${rcFile}\n`)
+    }
+
+    const currentPath = process.env.PATH || ''
+    if (!currentPath.split(':').includes(localBin)) {
+      process.env.PATH = currentPath ? `${localBin}:${currentPath}` : localBin
+      event.sender.send('setup:output', 'Applied ~/.local/bin to current app PATH\n')
+    }
+
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: (err as Error).message }
+  }
+}
+
 export function registerSetupHandlers(): void {
   ipcMain.handle('setup:check-all', async () => {
     const prerequisites: PrerequisiteStatus[] = []
@@ -443,7 +498,20 @@ export function registerSetupHandlers(): void {
         return { success: false, error: `Unsupported platform: ${process.platform}` }
       }
 
-      if (result.success) fixPath()
+      if (result.success) {
+        if (process.platform === 'darwin' || process.platform === 'linux') {
+          event.sender.send('setup:output', 'Configuring Claude PATH in shell rc...\n')
+          const pathResult = configureClaudePath(event)
+          if (!pathResult.success) {
+            return {
+              success: false,
+              error: pathResult.error || 'Failed to configure Claude PATH',
+              output: result.output
+            }
+          }
+        }
+        fixPath()
+      }
       return result
     } catch (err) {
       return { success: false, error: (err as Error).message }
@@ -545,6 +613,11 @@ export function registerSetupHandlers(): void {
             event
           )
           if (!result.success) return result
+          event.sender.send('setup:output', 'Configuring Claude PATH in shell rc...\n')
+          const pathResult = configureClaudePath(event)
+          if (!pathResult.success) {
+            return { success: false, error: pathResult.error || 'Failed to configure Claude PATH' }
+          }
           fixPath()
         } else if (process.platform === 'win32') {
           let result = await spawnWithStreaming(

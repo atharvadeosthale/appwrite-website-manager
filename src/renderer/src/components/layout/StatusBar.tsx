@@ -18,6 +18,7 @@ import { ConfirmDialog } from '../shared/ConfirmDialog'
 import { useGitStatus } from '../../hooks/useGitStatus'
 import { useRefreshKey } from '../../hooks/useRefreshKey'
 import { useToast } from '../ui/Toast'
+import { useAiTasks } from '../../hooks/useAiTasks'
 
 type ConfirmDialogState =
   | { type: 'none' }
@@ -203,6 +204,7 @@ export function StatusBar(): React.JSX.Element {
   const { branch, status, remoteStatus, loading, refetch } = useGitStatus()
   const { refresh } = useRefreshKey()
   const toast = useToast()
+  const { activeCount } = useAiTasks()
 
   const [branches, setBranches] = useState<string[]>([])
   const [switchingBranch, setSwitchingBranch] = useState(false)
@@ -228,6 +230,18 @@ export function StatusBar(): React.JSX.Element {
   const [prSuccessMode, setPrSuccessMode] = useState<'created' | 'updated'>('created')
 
   const isOnMain = branch === 'main'
+  const hasActiveAiTasks = activeCount > 0
+  const gitLockTitle = hasActiveAiTasks
+    ? `Git actions are disabled while ${activeCount} AI task${activeCount === 1 ? '' : 's'} are running.`
+    : undefined
+
+  const blockIfAiTasksActive = useCallback((): boolean => {
+    if (!hasActiveAiTasks) return false
+    toast.warning(
+      `Git actions are disabled while ${activeCount} AI task${activeCount === 1 ? '' : 's'} are running.`
+    )
+    return true
+  }, [hasActiveAiTasks, toast, activeCount])
 
   const fetchBranches = useCallback(async () => {
     try {
@@ -284,6 +298,7 @@ export function StatusBar(): React.JSX.Element {
   }, [refetch, refresh, toast])
 
   const handlePull = useCallback(async () => {
+    if (blockIfAiTasksActive()) return
     // First check for uncommitted changes
     try {
       const currentStatus = await window.api.gitStatus()
@@ -296,14 +311,16 @@ export function StatusBar(): React.JSX.Element {
       // If we can't check status, proceed anyway
     }
     await executePull()
-  }, [executePull])
+  }, [executePull, blockIfAiTasksActive])
 
   const handleConfirmDirtyPull = useCallback(async () => {
+    if (blockIfAiTasksActive()) return
     setDialog({ type: 'none' })
     await executePull()
-  }, [executePull])
+  }, [executePull, blockIfAiTasksActive])
 
   const handleConfirmConflictReset = useCallback(async () => {
+    if (blockIfAiTasksActive()) return
     setDialog({ type: 'none' })
     setPulling(true)
     try {
@@ -320,15 +337,17 @@ export function StatusBar(): React.JSX.Element {
     } finally {
       setPulling(false)
     }
-  }, [refetch, refresh, toast])
+  }, [refetch, refresh, toast, blockIfAiTasksActive])
 
   /* ─── Branch switch flow ─── */
 
   const handleSwitchBranch = useCallback((newBranch: string) => {
+    if (blockIfAiTasksActive()) return
     setDialog({ type: 'switch-branch', branch: newBranch })
-  }, [])
+  }, [blockIfAiTasksActive])
 
   const handleConfirmSwitchBranch = useCallback(async () => {
+    if (blockIfAiTasksActive()) return
     if (dialog.type !== 'switch-branch') return
     const targetBranch = dialog.branch
     setDialog({ type: 'none' })
@@ -347,15 +366,17 @@ export function StatusBar(): React.JSX.Element {
     } finally {
       setSwitchingBranch(false)
     }
-  }, [dialog, refetch, fetchBranches, toast])
+  }, [dialog, refetch, fetchBranches, toast, blockIfAiTasksActive])
 
   /* ─── Reset flow ─── */
 
   const handleReset = useCallback(() => {
+    if (blockIfAiTasksActive()) return
     setDialog({ type: 'hard-reset' })
-  }, [])
+  }, [blockIfAiTasksActive])
 
   const handleConfirmHardReset = useCallback(async () => {
+    if (blockIfAiTasksActive()) return
     setDialog({ type: 'none' })
     try {
       const result = await window.api.gitHardReset()
@@ -369,17 +390,19 @@ export function StatusBar(): React.JSX.Element {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to reset repository')
     }
-  }, [refetch, refresh, toast])
+  }, [refetch, refresh, toast, blockIfAiTasksActive])
 
   /* ─── Commit flow ─── */
 
   const openCommitPopover = useCallback(() => {
+    if (blockIfAiTasksActive()) return
     setCommitMessage('')
     setNewBranchName('')
     setPopover('commit')
-  }, [])
+  }, [blockIfAiTasksActive])
 
   const handleCommit = useCallback(async () => {
+    if (blockIfAiTasksActive()) return
     if (!commitMessage.trim()) return
     setCommitting(true)
     try {
@@ -407,19 +430,21 @@ export function StatusBar(): React.JSX.Element {
     } finally {
       setCommitting(false)
     }
-  }, [commitMessage, newBranchName, isOnMain, refetch, fetchBranches, toast])
+  }, [commitMessage, newBranchName, isOnMain, refetch, fetchBranches, toast, blockIfAiTasksActive])
 
   /* ─── Create PR flow ─── */
 
   const openPrPopover = useCallback(() => {
+    if (blockIfAiTasksActive()) return
     setPrTitle(branch || '')
     if (!branchPrUrl) {
       setPrBody('')
     }
     setPopover('create-pr')
-  }, [branch, branchPrUrl])
+  }, [branch, branchPrUrl, blockIfAiTasksActive])
 
   const handleCreatePr = useCallback(async () => {
+    if (blockIfAiTasksActive()) return
     const trimmedTitle = prTitle.trim()
     if (!branchPrUrl && !trimmedTitle) return
 
@@ -453,7 +478,7 @@ export function StatusBar(): React.JSX.Element {
     } finally {
       setCreatingPr(false)
     }
-  }, [prTitle, prBody, branch, branchPrUrl, toast])
+  }, [prTitle, prBody, branch, branchPrUrl, toast, blockIfAiTasksActive])
 
   /* ─── Dialog close ─── */
 
@@ -464,6 +489,17 @@ export function StatusBar(): React.JSX.Element {
   const closePopover = useCallback(() => {
     setPopover('none')
   }, [])
+
+  useEffect(() => {
+    if (!hasActiveAiTasks) return
+    setPopover('none')
+    setDialog({ type: 'none' })
+  }, [hasActiveAiTasks])
+
+  const handleToggleDiff = useCallback(() => {
+    if (blockIfAiTasksActive()) return
+    setPopover((current) => (current === 'diff' ? 'none' : 'diff'))
+  }, [blockIfAiTasksActive])
 
   const isNotMain = branch && branch !== 'main'
   const hasDirtyFiles = !!status && !status.clean
@@ -492,6 +528,22 @@ export function StatusBar(): React.JSX.Element {
         </div>
       )}
 
+      {hasActiveAiTasks && (
+        <div
+          className={clsx(
+            'mx-4 mt-3 flex items-center gap-2 rounded-[12px] border border-accent/18 bg-accent-muted px-4 py-2',
+            'text-xs font-medium text-accent',
+            'animate-fade-in'
+          )}
+        >
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>
+            Git actions are locked while {activeCount} AI task{activeCount === 1 ? '' : 's'} are
+            running.
+          </span>
+        </div>
+      )}
+
       <div
         className={clsx(
           'flex flex-col gap-4 px-4 py-4 xl:flex-row xl:items-center xl:justify-between',
@@ -501,10 +553,13 @@ export function StatusBar(): React.JSX.Element {
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           {branch ? (
             <BranchSelector
+              key={hasActiveAiTasks ? 'branch-selector-locked' : 'branch-selector-unlocked'}
               current={branch}
               branches={branches}
               onSwitch={handleSwitchBranch}
               loading={switchingBranch || loading}
+              disabled={hasActiveAiTasks}
+              disabledTitle={gitLockTitle}
             />
           ) : (
             <div className="inline-flex items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.04] px-3.5 py-2 text-text-tertiary">
@@ -543,6 +598,8 @@ export function StatusBar(): React.JSX.Element {
                 icon={ArrowDown}
                 loading={pulling}
                 onClick={handlePull}
+                disabled={hasActiveAiTasks}
+                title={gitLockTitle}
               >
                 Update
               </Button>
@@ -551,12 +608,26 @@ export function StatusBar(): React.JSX.Element {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-          <Button variant="ghost" size="sm" icon={RotateCcw} onClick={handleReset}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={RotateCcw}
+            onClick={handleReset}
+            disabled={hasActiveAiTasks}
+            title={gitLockTitle}
+          >
             Reset
           </Button>
 
           <div className="relative">
-            <Button variant="secondary" size="sm" icon={GitCommit} onClick={openCommitPopover}>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={GitCommit}
+              onClick={openCommitPopover}
+              disabled={hasActiveAiTasks}
+              title={gitLockTitle}
+            >
               Commit
             </Button>
             <StatusBarPopover open={popover === 'commit'} onClose={closePopover}>
@@ -614,8 +685,8 @@ export function StatusBar(): React.JSX.Element {
               size="sm"
               icon={GitPullRequest}
               onClick={openPrPopover}
-              disabled={isOnMain}
-              title={isOnMain ? 'Switch to a branch first' : undefined}
+              disabled={isOnMain || hasActiveAiTasks}
+              title={hasActiveAiTasks ? gitLockTitle : isOnMain ? 'Switch to a branch first' : undefined}
             >
               {prActionLabel}
             </Button>
@@ -704,7 +775,9 @@ export function StatusBar(): React.JSX.Element {
               variant="ghost"
               size="sm"
               icon={GitCompareArrows}
-              onClick={() => setPopover(popover === 'diff' ? 'none' : 'diff')}
+              onClick={handleToggleDiff}
+              disabled={hasActiveAiTasks}
+              title={gitLockTitle}
             >
               Diff {totalDiffFiles > 0 ? `(${totalDiffFiles})` : ''}
             </Button>

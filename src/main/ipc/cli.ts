@@ -341,7 +341,7 @@ export function registerCliHandlers(): void {
 
   ipcMain.handle(
     'cli:write-with-ai',
-    async (event, { blogSlug, aiPrompt }: { blogSlug: string; aiPrompt: string }) => {
+    async (_event, { blogSlug, aiPrompt }: { blogSlug: string; aiPrompt: string }) => {
       const cwd = getRepoPath()
       const blogPath = `src/routes/blog/post/${blogSlug}/+page.markdoc`
 
@@ -434,15 +434,6 @@ export function registerCliHandlers(): void {
             value.success,
             value.error ? `error: ${value.error}` : ''
           )
-          // Send a completion signal so the renderer knows we're done,
-          // even if the invoke return is somehow missed
-          try {
-            if (!event.sender.isDestroyed()) {
-              event.sender.send('cli:output:done')
-            }
-          } catch {
-            // sender may be gone — ignore
-          }
           resolve(value)
         }
 
@@ -471,16 +462,6 @@ export function registerCliHandlers(): void {
         // Safety timeout so the process doesn't hang forever
         const timer = setTimeout(() => {
           console.error('[write-with-ai] Timeout reached, killing process')
-          try {
-            if (!event.sender.isDestroyed()) {
-              event.sender.send(
-                'cli:output',
-                '\n[timeout] Claude process exceeded 10 minute limit and was terminated.\n'
-              )
-            }
-          } catch {
-            /* ignore */
-          }
           proc.kill('SIGTERM')
           // Give it 5 seconds to clean up, then force kill
           setTimeout(() => {
@@ -499,20 +480,13 @@ export function registerCliHandlers(): void {
 
         let output = ''
 
-        proc.stdout.on('data', (data: Buffer) => {
+        proc.stdout?.on('data', (data: Buffer) => {
           const chunk = data.toString()
           output += chunk
           console.log('[write-with-ai] stdout chunk:', chunk.length, 'bytes')
-          try {
-            if (!event.sender.isDestroyed()) {
-              event.sender.send('cli:output', chunk)
-            }
-          } catch {
-            // sender destroyed — ignore
-          }
         })
 
-        proc.stderr.on('data', (data: Buffer) => {
+        proc.stderr?.on('data', (data: Buffer) => {
           const chunk = data.toString()
           output += chunk
           console.log(
@@ -521,13 +495,6 @@ export function registerCliHandlers(): void {
             'bytes:',
             chunk.substring(0, 200)
           )
-          try {
-            if (!event.sender.isDestroyed()) {
-              event.sender.send('cli:output', chunk)
-            }
-          } catch {
-            // sender destroyed — ignore
-          }
         })
 
         proc.on('close', (code, signal) => {

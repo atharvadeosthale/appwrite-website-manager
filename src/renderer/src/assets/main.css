@@ -476,6 +476,26 @@ textarea::placeholder {
   }
 }
 
+@keyframes ai-launch-to-orb {
+  0% {
+    opacity: 0.96;
+    border-radius: 18px;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  45% {
+    opacity: 0.92;
+    border-radius: 24px;
+    transform: translate(-35%, -35%) scale(0.55);
+  }
+
+  100% {
+    opacity: 0.84;
+    border-radius: 999px;
+    transform: translate(calc(50vw - 4.25rem), calc(50vh - 4.25rem)) scale(0.11);
+  }
+}
+
 .animate-fade-in {
   animation: fade-in 420ms var(--ease-out-expo) both;
 }
@@ -498,6 +518,10 @@ textarea::placeholder {
 
 .animate-slide-in-right {
   animation: slide-in-right 260ms var(--ease-out-expo) both;
+}
+
+.animate-ai-launch-to-orb {
+  animation: ai-launch-to-orb 520ms var(--ease-out-expo) both;
 }
 
 .terminal-blink {

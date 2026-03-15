@@ -8,13 +8,17 @@ interface BranchSelectorProps {
   branches: string[]
   onSwitch: (branch: string) => void
   loading?: boolean
+  disabled?: boolean
+  disabledTitle?: string
 }
 
 export function BranchSelector({
   current,
   branches,
   onSwitch,
-  loading = false
+  loading = false,
+  disabled = false,
+  disabledTitle
 }: BranchSelectorProps): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -58,7 +62,8 @@ export function BranchSelector({
       <button
         type="button"
         onClick={() => setIsOpen((currentOpen) => !currentOpen)}
-        disabled={loading}
+        disabled={loading || disabled}
+        title={disabled ? disabledTitle : undefined}
         className={clsx(
           'inline-flex min-h-9 items-center gap-2 rounded-[12px] border border-white/10 bg-white/[0.04] px-3.5 text-sm text-text-primary transition-all duration-200',
           'hover:border-white/16 hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/20',
@@ -70,7 +75,7 @@ export function BranchSelector({
         {loading ? <Spinner size="sm" className="text-text-tertiary" /> : <ChevronDown size={14} className={clsx('text-text-tertiary transition-transform duration-200', isOpen && 'rotate-180')} />}
       </button>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div className="absolute bottom-full left-0 z-40 mb-2 w-72 overflow-hidden rounded-[16px] border border-white/10 bg-[linear-gradient(180deg,rgba(26,26,30,0.98),rgba(12,12,14,0.98))] shadow-[0_22px_60px_rgba(3,7,18,0.42)] animate-scale-in">
           <div className="border-b border-white/8 p-3">
             <div className="relative">

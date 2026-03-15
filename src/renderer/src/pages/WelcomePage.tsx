@@ -14,7 +14,17 @@ export default function WelcomePage(): React.JSX.Element {
     async function checkExistingRepo(): Promise<void> {
       try {
         const setupResult = await window.api.setupCheckAll()
-        if (!setupResult.allPassed) {
+        let skipOptional = false
+        try {
+          skipOptional = sessionStorage.getItem('skipOptionalClaudeSetup') === '1'
+        } catch {
+          // Ignore storage errors.
+        }
+        const optionalPending = setupResult.prerequisites.some(
+          (p) => p.id === 'claude' && !p.installed
+        )
+
+        if (!setupResult.allPassed || (optionalPending && !skipOptional)) {
           navigate('/setup', { replace: true })
           return
         }

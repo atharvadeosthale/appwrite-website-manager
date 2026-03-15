@@ -55,11 +55,11 @@ import { Spinner } from '../components/ui/Spinner'
 import { AuthorAvatar } from '../components/shared/AuthorAvatar'
 import { TerminalOutput } from '../components/shared/TerminalOutput'
 import { WriteWithAIModal } from '../components/shared/WriteWithAIModal'
-import { ClaudeSetupDialog } from '../components/shared/ClaudeSetupDialog'
 import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { FormField } from '../components/forms/FormField'
 import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
+import { useAiTasks, type AiTaskStatus } from '../hooks/useAiTasks'
 import type { Author, UpdateBlogOptions } from '../types'
 
 /* ─── Author Dropdown with Avatars ─── */
@@ -304,6 +304,7 @@ export default function EditBlogPage(): React.JSX.Element {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const toast = useToast()
+  const { tasks, startTask } = useAiTasks()
 
   // Load data
   const { authors, loading: authorsLoading } = useAuthors()
@@ -332,25 +333,19 @@ export default function EditBlogPage(): React.JSX.Element {
 
   // Submission state
   const [submitting, setSubmitting] = useState(false)
+  const [returningToEditor, setReturningToEditor] = useState(false)
   const [cliOutput, setCliOutput] = useState<string[]>([])
   const [submitResult, setSubmitResult] = useState<'success' | 'error' | null>(null)
 
   // AI modal state
   const [aiModalOpen, setAiModalOpen] = useState(false)
-  const [aiGenerating, setAiGenerating] = useState(false)
-  const [, setAiOutput] = useState<string[]>([])
-  const [aiResult, setAiResult] = useState<'success' | 'error' | null>(null)
-
-  // Claude setup dialog state
-  const [setupDialogOpen, setSetupDialogOpen] = useState(false)
-  const [setupReason, setSetupReason] = useState<'not-logged-in'>('not-logged-in')
-  const lastAiPromptRef = useRef<string>('')
 
   // Unsaved changes tracking
   const [originalContent, setOriginalContent] = useState('')
   const [, setIsDirty] = useState(false)
   const [confirmAIOpen, setConfirmAIOpen] = useState(false)
   const editorInitializedRef = useRef(false)
+  const previousTaskStatusesRef = useRef<Record<string, AiTaskStatus>>({})
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -537,6 +532,51 @@ export default function EditBlogPage(): React.JSX.Element {
     return currentContent !== originalContent
   }, [markdocContent, originalContent])
 
+  const reloadEditorFromDisk = useCallback(async (): Promise<void> => {
+    if (!slug) return
+    const reloadResult = await window.api.readBlogContent(slug)
+    if (reloadResult.success && reloadResult.content) {
+      const { frontmatter, body } = stripFrontmatter(reloadResult.content)
+      frontmatterRef.current = frontmatter
+      setMarkdocContent(body)
+      setOriginalContent(frontmatter + body)
+      editorInitializedRef.current = false
+      editorRef.current?.setMarkdown(body)
+      setIsDirty(false)
+    }
+    await refetch()
+  }, [slug, refetch])
+
+  const handleContinueEditing = useCallback(async (): Promise<void> => {
+    setReturningToEditor(true)
+    setContentLoading(true)
+    try {
+      await reloadEditorFromDisk()
+    } finally {
+      setSubmitResult(null)
+      setCliOutput([])
+      setReturningToEditor(false)
+      setContentLoading(false)
+    }
+  }, [reloadEditorFromDisk])
+
+  useEffect(() => {
+    const nextStatusMap: Record<string, AiTaskStatus> = {}
+
+    for (const task of tasks) {
+      nextStatusMap[task.id] = task.status
+      const previousStatus = previousTaskStatusesRef.current[task.id]
+      const completedWhileOpen =
+        task.blogSlug === slug && previousStatus === 'active' && task.status === 'completed'
+
+      if (completedWhileOpen) {
+        void reloadEditorFromDisk()
+      }
+    }
+
+    previousTaskStatusesRef.current = nextStatusMap
+  }, [tasks, slug, reloadEditorFromDisk])
+
   /* ─── Write with AI ─── */
   const handleWriteWithAI = useCallback(async (): Promise<void> => {
     console.log('[handleWriteWithAI] Button clicked — checking Claude installation...')
@@ -558,108 +598,29 @@ export default function EditBlogPage(): React.JSX.Element {
       setConfirmAIOpen(true)
     } else {
       setAiModalOpen(true)
-      setAiOutput([])
-      setAiResult(null)
     }
   }, [checkIfDirty, navigate])
 
   const handleConfirmAI = useCallback((): void => {
     setConfirmAIOpen(false)
     setAiModalOpen(true)
-    setAiOutput([])
-    setAiResult(null)
-  }, [])
-
-  // Helper to detect authentication errors in CLI output
-  const isAuthError = useCallback((text: string): boolean => {
-    const lower = text.toLowerCase()
-    return (
-      lower.includes('not logged in') ||
-      lower.includes('not authenticated') ||
-      lower.includes('authentication required') ||
-      lower.includes('please log in') ||
-      lower.includes('login required')
-    )
   }, [])
 
   const handleAIGenerate = useCallback(
-    async (prompt: string): Promise<void> => {
+    async (prompt: string): Promise<boolean> => {
       if (!slug) {
-        console.warn('[handleAIGenerate] No slug, aborting')
-        return
+        return false
       }
 
-      console.log('[handleAIGenerate] Starting AI generation for slug:', slug)
-      console.log('[handleAIGenerate] Prompt length:', prompt.length)
-
-      // Store the prompt so we can retry after login
-      lastAiPromptRef.current = prompt
-
-      setAiGenerating(true)
-      setAiOutput([])
-      setAiResult(null)
-
-      // Remove any stale listeners first, then attach new ones
-      window.api.removeCliOutputListener()
-      window.api.onCliOutput((data: string) => {
-        console.log('[handleAIGenerate] CLI output received:', data.length, 'bytes')
-        setAiOutput((prev) => [...prev, data])
+      const started = await startTask({
+        blogSlug: slug,
+        blogName: title.trim() || slug,
+        prompt
       })
-
-      try {
-        console.log('[handleAIGenerate] Calling window.api.writeWithAI...')
-        const result = await window.api.writeWithAI(slug, prompt)
-        console.log('[handleAIGenerate] writeWithAI resolved:', result.success, result.error ?? '')
-        window.api.removeCliOutputListener()
-
-        if (result.success) {
-          // Reload blog content from disk
-          const reloadResult = await window.api.readBlogContent(slug)
-          if (reloadResult.success && reloadResult.content) {
-            const { frontmatter, body } = stripFrontmatter(reloadResult.content)
-            frontmatterRef.current = frontmatter
-            setMarkdocContent(body)
-            // Reset so the next editor onChange captures the new normalized baseline
-            editorInitializedRef.current = false
-            editorRef.current?.setMarkdown(body)
-            setIsDirty(false)
-          }
-          refetch()
-          setAiResult('success')
-        } else {
-          // Check if the error is an authentication issue
-          const errorText = [result.error ?? '', result.output ?? ''].join(' ')
-          if (isAuthError(errorText)) {
-            setSetupReason('not-logged-in')
-            setSetupDialogOpen(true)
-            // Don't show error in the modal — the setup dialog handles it
-            setAiResult(null)
-          } else {
-            setAiResult('error')
-          }
-        }
-      } catch (err) {
-        console.error('[handleAIGenerate] Caught error:', err)
-        window.api.removeCliOutputListener()
-        setAiResult('error')
-      } finally {
-        console.log('[handleAIGenerate] Finally block — setting aiGenerating to false')
-        setAiGenerating(false)
-      }
+      return started.started
     },
-    [slug, refetch, isAuthError]
+    [slug, title, startTask]
   )
-
-  /* ─── Setup dialog completion ─── */
-  const handleSetupComplete = useCallback((): void => {
-    setSetupDialogOpen(false)
-
-    if (lastAiPromptRef.current) {
-      // Automatically retry AI generation with the same prompt
-      // The AI modal is still open, so just re-trigger generation
-      handleAIGenerate(lastAiPromptRef.current)
-    }
-  }, [handleAIGenerate])
 
   /* ─── Cover image picker ─── */
   const handleSelectCover = async (): Promise<void> => {
@@ -722,10 +683,9 @@ export default function EditBlogPage(): React.JSX.Element {
               <Button
                 variant="primary"
                 icon={Save}
-                onClick={() => {
-                  setSubmitResult(null)
-                  setCliOutput([])
-                }}
+                loading={returningToEditor}
+                onClick={() => void handleContinueEditing()}
+                disabled={returningToEditor}
               >
                 Continue Editing
               </Button>
@@ -1091,22 +1051,9 @@ export default function EditBlogPage(): React.JSX.Element {
 
       <WriteWithAIModal
         open={aiModalOpen}
-        onClose={() => {
-          if (!aiGenerating) {
-            setAiModalOpen(false)
-          }
-        }}
+        onClose={() => setAiModalOpen(false)}
         onGenerate={handleAIGenerate}
         blogSlug={slug!}
-        generating={aiGenerating}
-        result={aiResult}
-      />
-
-      <ClaudeSetupDialog
-        open={setupDialogOpen}
-        onClose={() => setSetupDialogOpen(false)}
-        onComplete={handleSetupComplete}
-        reason={setupReason}
       />
       </div>
     </PageScaffold>
