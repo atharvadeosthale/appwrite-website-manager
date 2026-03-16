@@ -71,6 +71,7 @@ interface AppAPI {
   // Filesystem
   selectZip: () => Promise<string | null>
   selectImage: () => Promise<string | null>
+  fileExists: (path: string) => Promise<boolean>
 
   // Setup
   setupCheckAll: () => Promise<SetupCheckResult>

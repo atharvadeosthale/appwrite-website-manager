@@ -59,6 +59,7 @@ import { ConfirmDialog } from '../components/shared/ConfirmDialog'
 import { FormField } from '../components/forms/FormField'
 import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
+import { requestCoverAuditRefresh } from '../hooks/coverAuditRefresh'
 import { useAiTasks, type AiTaskStatus } from '../hooks/useAiTasks'
 import type { Author, UpdateBlogOptions } from '../types'
 
@@ -498,6 +499,7 @@ export default function EditBlogPage(): React.JSX.Element {
       if (!updateResult.success) {
         throw new Error(updateResult.error ?? 'Failed to update blog metadata')
       }
+      requestCoverAuditRefresh()
 
       // 3. Run sanitize
       const sanitizeResult = await window.api.sanitize(slug!)

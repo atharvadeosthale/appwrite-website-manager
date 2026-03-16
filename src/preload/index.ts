@@ -132,6 +132,7 @@ const api = {
   // Filesystem
   selectZip: (): Promise<string | null> => ipcRenderer.invoke('fs:select-zip'),
   selectImage: (): Promise<string | null> => ipcRenderer.invoke('fs:select-image'),
+  fileExists: (path: string): Promise<boolean> => ipcRenderer.invoke('fs:file-exists', path),
 
   // Setup
   setupCheckAll: (): Promise<{

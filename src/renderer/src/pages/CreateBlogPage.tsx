@@ -28,6 +28,7 @@ import { FileDropZone } from '../components/shared/FileDropZone'
 import { FormField } from '../components/forms/FormField'
 import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
 import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
+import { requestCoverAuditRefresh } from '../hooks/coverAuditRefresh'
 import type { Author, CreateBlogOptions } from '../types'
 
 function generateSlug(title: string): string {
@@ -328,6 +329,7 @@ export default function CreateBlogPage(): React.JSX.Element {
 
       if (result.success) {
         requestGitStatusRefresh()
+        requestCoverAuditRefresh()
         setSubmitResult('success')
         toast.success('Blog post created successfully!')
       } else {

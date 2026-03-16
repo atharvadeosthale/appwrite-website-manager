@@ -7,6 +7,7 @@ import {
   Users,
   Tag,
   FilePlus,
+  Layers,
   UserPlus,
   Download,
   Sparkles,
@@ -16,11 +17,13 @@ import {
 } from 'lucide-react'
 import { Toggle } from '../ui/Toggle'
 import { useDevServer } from '../../hooks/useDevServer'
+import { useCoverAudit } from '../../hooks/useCoverAudit'
 
 interface NavItem {
   label: string
   path: string
   icon: typeof LayoutDashboard
+  badgeCount?: number
 }
 
 const contentNav: NavItem[] = [
@@ -43,29 +46,6 @@ const contentNav: NavItem[] = [
     label: 'Categories',
     path: '/dashboard/categories',
     icon: Tag
-  }
-]
-
-const toolsNav: NavItem[] = [
-  {
-    label: 'Create Blog',
-    path: '/dashboard/blogs/create',
-    icon: FilePlus
-  },
-  {
-    label: 'Create Author',
-    path: '/dashboard/authors/create',
-    icon: UserPlus
-  },
-  {
-    label: 'Import Notion',
-    path: '/dashboard/import-notion',
-    icon: Download
-  },
-  {
-    label: 'Sanitize',
-    path: '/dashboard/sanitize',
-    icon: Sparkles
   }
 ]
 
@@ -121,6 +101,11 @@ function NavSection({
                   {item.label}
                 </p>
               </div>
+              {item.badgeCount && item.badgeCount > 0 && (
+                <span className="ml-auto inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border border-warning/25 bg-warning-muted px-1.5 text-[10px] font-semibold text-warning">
+                  {item.badgeCount}
+                </span>
+              )}
             </button>
           )
         })}
@@ -133,7 +118,37 @@ export function Sidebar(): React.JSX.Element {
   const location = useLocation()
   const navigate = useNavigate()
   const { running, starting, stopping, start, stop } = useDevServer()
+  const { missingCoverCount } = useCoverAudit()
   const { refresh } = useRefreshKey()
+
+  const toolsNav: NavItem[] = [
+    {
+      label: 'Create Blog',
+      path: '/dashboard/blogs/create',
+      icon: FilePlus
+    },
+    {
+      label: 'Bulk Generation',
+      path: '/dashboard/bulk-generation',
+      icon: Layers,
+      badgeCount: missingCoverCount
+    },
+    {
+      label: 'Create Author',
+      path: '/dashboard/authors/create',
+      icon: UserPlus
+    },
+    {
+      label: 'Import Notion',
+      path: '/dashboard/import-notion',
+      icon: Download
+    },
+    {
+      label: 'Sanitize',
+      path: '/dashboard/sanitize',
+      icon: Sparkles
+    }
+  ]
 
   const handleNavigate = (path: string): void => {
     navigate(path)

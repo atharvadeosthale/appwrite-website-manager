@@ -4,6 +4,7 @@ import { registerCliHandlers } from './cli'
 import { registerDevServerHandlers } from './devServer'
 import { registerFilesystemHandlers } from './filesystem'
 import { registerSetupHandlers } from './setup'
+import { registerDebugHandlers } from './debug'
 
 export function registerAllHandlers(): void {
   registerRepoHandlers()
@@ -12,4 +13,5 @@ export function registerAllHandlers(): void {
   registerDevServerHandlers()
   registerFilesystemHandlers()
   registerSetupHandlers()
+  registerDebugHandlers()
 }

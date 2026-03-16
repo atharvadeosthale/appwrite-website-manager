@@ -1,4 +1,5 @@
 import { ipcMain, dialog } from 'electron'
+import { existsSync } from 'fs'
 
 export function registerFilesystemHandlers(): void {
   ipcMain.handle('fs:select-zip', async () => {
@@ -27,5 +28,10 @@ export function registerFilesystemHandlers(): void {
     }
 
     return result.filePaths[0]
+  })
+
+  ipcMain.handle('fs:file-exists', async (_event, path: string) => {
+    if (!path) return false
+    return existsSync(path)
   })
 }

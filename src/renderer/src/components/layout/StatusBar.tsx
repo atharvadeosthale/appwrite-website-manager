@@ -204,7 +204,7 @@ export function StatusBar(): React.JSX.Element {
   const { branch, status, remoteStatus, loading, refetch } = useGitStatus()
   const { refresh } = useRefreshKey()
   const toast = useToast()
-  const { activeCount } = useAiTasks()
+  const { activeCount, queuedCount } = useAiTasks()
 
   const [branches, setBranches] = useState<string[]>([])
   const [switchingBranch, setSwitchingBranch] = useState(false)
@@ -230,18 +230,19 @@ export function StatusBar(): React.JSX.Element {
   const [prSuccessMode, setPrSuccessMode] = useState<'created' | 'updated'>('created')
 
   const isOnMain = branch === 'main'
-  const hasActiveAiTasks = activeCount > 0
-  const gitLockTitle = hasActiveAiTasks
-    ? `Git actions are disabled while ${activeCount} AI task${activeCount === 1 ? '' : 's'} are running.`
+  const pendingTaskCount = activeCount + queuedCount
+  const hasPendingAiTasks = pendingTaskCount > 0
+  const gitLockTitle = hasPendingAiTasks
+    ? `Git actions are disabled while ${pendingTaskCount} AI task${pendingTaskCount === 1 ? '' : 's'} are queued or running.`
     : undefined
 
   const blockIfAiTasksActive = useCallback((): boolean => {
-    if (!hasActiveAiTasks) return false
+    if (!hasPendingAiTasks) return false
     toast.warning(
-      `Git actions are disabled while ${activeCount} AI task${activeCount === 1 ? '' : 's'} are running.`
+      `Git actions are disabled while ${pendingTaskCount} AI task${pendingTaskCount === 1 ? '' : 's'} are queued or running.`
     )
     return true
-  }, [hasActiveAiTasks, toast, activeCount])
+  }, [hasPendingAiTasks, toast, pendingTaskCount])
 
   const fetchBranches = useCallback(async () => {
     try {
@@ -491,10 +492,10 @@ export function StatusBar(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (!hasActiveAiTasks) return
+    if (!hasPendingAiTasks) return
     setPopover('none')
     setDialog({ type: 'none' })
-  }, [hasActiveAiTasks])
+  }, [hasPendingAiTasks])
 
   const handleToggleDiff = useCallback(() => {
     if (blockIfAiTasksActive()) return
@@ -528,7 +529,7 @@ export function StatusBar(): React.JSX.Element {
         </div>
       )}
 
-      {hasActiveAiTasks && (
+      {hasPendingAiTasks && (
         <div
           className={clsx(
             'mx-4 mt-3 flex items-center gap-2 rounded-[12px] border border-accent/18 bg-accent-muted px-4 py-2',
@@ -538,8 +539,8 @@ export function StatusBar(): React.JSX.Element {
         >
           <AlertTriangle size={14} className="shrink-0" />
           <span>
-            Git actions are locked while {activeCount} AI task{activeCount === 1 ? '' : 's'} are
-            running.
+            Git actions are locked while {pendingTaskCount} AI task
+            {pendingTaskCount === 1 ? '' : 's'} are queued or running.
           </span>
         </div>
       )}
@@ -553,12 +554,12 @@ export function StatusBar(): React.JSX.Element {
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           {branch ? (
             <BranchSelector
-              key={hasActiveAiTasks ? 'branch-selector-locked' : 'branch-selector-unlocked'}
+              key={hasPendingAiTasks ? 'branch-selector-locked' : 'branch-selector-unlocked'}
               current={branch}
               branches={branches}
               onSwitch={handleSwitchBranch}
               loading={switchingBranch || loading}
-              disabled={hasActiveAiTasks}
+              disabled={hasPendingAiTasks}
               disabledTitle={gitLockTitle}
             />
           ) : (
@@ -598,7 +599,7 @@ export function StatusBar(): React.JSX.Element {
                 icon={ArrowDown}
                 loading={pulling}
                 onClick={handlePull}
-                disabled={hasActiveAiTasks}
+                disabled={hasPendingAiTasks}
                 title={gitLockTitle}
               >
                 Update
@@ -613,7 +614,7 @@ export function StatusBar(): React.JSX.Element {
             size="sm"
             icon={RotateCcw}
             onClick={handleReset}
-            disabled={hasActiveAiTasks}
+            disabled={hasPendingAiTasks}
             title={gitLockTitle}
           >
             Reset
@@ -625,7 +626,7 @@ export function StatusBar(): React.JSX.Element {
               size="sm"
               icon={GitCommit}
               onClick={openCommitPopover}
-              disabled={hasActiveAiTasks}
+              disabled={hasPendingAiTasks}
               title={gitLockTitle}
             >
               Commit
@@ -685,8 +686,8 @@ export function StatusBar(): React.JSX.Element {
               size="sm"
               icon={GitPullRequest}
               onClick={openPrPopover}
-              disabled={isOnMain || hasActiveAiTasks}
-              title={hasActiveAiTasks ? gitLockTitle : isOnMain ? 'Switch to a branch first' : undefined}
+              disabled={isOnMain || hasPendingAiTasks}
+              title={hasPendingAiTasks ? gitLockTitle : isOnMain ? 'Switch to a branch first' : undefined}
             >
               {prActionLabel}
             </Button>
@@ -776,7 +777,7 @@ export function StatusBar(): React.JSX.Element {
               size="sm"
               icon={GitCompareArrows}
               onClick={handleToggleDiff}
-              disabled={hasActiveAiTasks}
+              disabled={hasPendingAiTasks}
               title={gitLockTitle}
             >
               Diff {totalDiffFiles > 0 ? `(${totalDiffFiles})` : ''}

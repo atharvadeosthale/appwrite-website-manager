@@ -77,7 +77,7 @@ export function registerGitHandlers(): void {
   ipcMain.handle('git:remote-status', async () => {
     const cwd = getRepoPath()
     try {
-      execGit('git fetch origin', cwd)
+      execGit('git fetch --quiet origin', cwd)
 
       const behindStr = execGit('git rev-list --count HEAD..origin/main', cwd)
       const aheadStr = execGit('git rev-list --count origin/main..HEAD', cwd)

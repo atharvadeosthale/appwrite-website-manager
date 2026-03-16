@@ -7,9 +7,12 @@ import {
   AlertCircle,
   ChevronUp,
   ChevronDown,
-  X
+  X,
+  Clock3,
+  AlertTriangle
 } from 'lucide-react'
 import { useAiTasks, type AiTask } from '../../hooks/useAiTasks'
+import { useCoverAudit } from '../../hooks/useCoverAudit'
 
 interface TaskGroup {
   blogSlug: string
@@ -34,8 +37,8 @@ function groupByBlog(tasks: AiTask[]): TaskGroup[] {
   }
 
   return Array.from(grouped.values()).sort((a, b) => {
-    const aTime = new Date(a.tasks[0]?.finishedAt ?? a.tasks[0]?.startedAt ?? 0).getTime()
-    const bTime = new Date(b.tasks[0]?.finishedAt ?? b.tasks[0]?.startedAt ?? 0).getTime()
+    const aTime = new Date(a.tasks[0]?.finishedAt ?? a.tasks[0]?.startedAt ?? a.tasks[0]?.queuedAt ?? 0).getTime()
+    const bTime = new Date(b.tasks[0]?.finishedAt ?? b.tasks[0]?.startedAt ?? b.tasks[0]?.queuedAt ?? 0).getTime()
     return bTime - aTime
   })
 }
@@ -58,7 +61,7 @@ function TaskGroupCard({
   onClick
 }: {
   group: TaskGroup
-  type: 'active' | 'finished'
+  type: 'queued' | 'active' | 'finished'
   onClick?: () => void
 }): React.JSX.Element {
   const completedCount = group.tasks.filter((task) => task.status === 'completed').length
@@ -97,6 +100,11 @@ function TaskGroupCard({
             <Loader2 size={12} className="animate-spin" />
             Running
           </span>
+        ) : type === 'queued' ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning-muted px-2.5 py-1 text-[11px] font-medium text-warning">
+            <Clock3 size={12} />
+            Queued
+          </span>
         ) : (
           <span
             className={clsx(
@@ -122,22 +130,29 @@ function TaskGroupCard({
       {type === 'active' && latest?.startedAt && (
         <p className="mt-3 text-xs text-text-secondary">Started {formatTime(latest.startedAt)}</p>
       )}
+      {type === 'queued' && latest?.queuedAt && (
+        <p className="mt-3 text-xs text-text-secondary">Queued {formatTime(latest.queuedAt)}</p>
+      )}
     </div>
   )
 }
 
 export function AITaskLauncher(): React.JSX.Element | null {
-  const { tasks, activeCount, clearFinishedQueue } = useAiTasks()
+  const { tasks, activeCount, queuedCount, clearFinishedQueue } = useAiTasks()
+  const { missingCoverBlogs, missingCoverCount, loading: coverAuditLoading, lastCheckedAt } = useCoverAudit()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const queuedTasks = useMemo(() => tasks.filter((task) => task.status === 'queued'), [tasks])
   const activeTasks = useMemo(() => tasks.filter((task) => task.status === 'active'), [tasks])
-  const finishedTasks = useMemo(() => tasks.filter((task) => task.status !== 'active'), [tasks])
+  const finishedTasks = useMemo(() => tasks.filter((task) => task.status === 'completed' || task.status === 'failed'), [tasks])
 
+  const queuedGroups = useMemo(() => groupByBlog(queuedTasks), [queuedTasks])
   const activeGroups = useMemo(() => groupByBlog(activeTasks), [activeTasks])
   const finishedGroups = useMemo(() => groupByBlog(finishedTasks), [finishedTasks])
 
-  const canClearQueue = activeCount === 0 && finishedTasks.length > 0
+  const pendingCount = activeCount + queuedCount
+  const canClearQueue = pendingCount === 0 && finishedTasks.length > 0
 
   const openEditPage = (blogSlug: string): void => {
     window.location.assign(`#/dashboard/blogs/${blogSlug}/edit`)
@@ -163,16 +178,16 @@ export function AITaskLauncher(): React.JSX.Element | null {
     }
   }, [open])
 
-  if (tasks.length === 0) return null
+  if (tasks.length === 0 && missingCoverCount === 0) return null
 
   return (
     <div ref={containerRef} className="fixed bottom-5 right-5 z-[70]">
       {open && (
-        <div className="mb-3 w-[22.5rem] overflow-hidden rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgba(26,26,30,0.98),rgba(12,12,14,0.98))] p-4 shadow-[0_30px_80px_rgba(3,7,18,0.48)] animate-scale-in">
+        <div className="mb-3 w-[24rem] overflow-hidden rounded-[18px] border border-white/10 bg-[linear-gradient(180deg,rgba(26,26,30,0.98),rgba(12,12,14,0.98))] p-4 shadow-[0_30px_80px_rgba(3,7,18,0.48)] animate-scale-in">
           <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/14 to-transparent" />
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary">AI Tasks</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary">Workspace Alerts</p>
               <h3 className="mt-1 font-display text-2xl text-text-primary">Task Queue</h3>
             </div>
             {canClearQueue && (
@@ -191,10 +206,19 @@ export function AITaskLauncher(): React.JSX.Element | null {
           </div>
 
           <div className="mt-4 space-y-4">
+            {queuedTasks.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-warning">Queued ({queuedTasks.length})</p>
+                <div className="mt-2 max-h-44 space-y-2.5 overflow-y-auto pr-1">
+                  {queuedGroups.map((group) => (
+                    <TaskGroupCard key={`queued-${group.blogSlug}-${group.tasks.length}`} group={group} type="queued" />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
-              <p className="text-[11px] uppercase tracking-[0.14em] text-accent">
-                Active ({activeTasks.length})
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-accent">Active ({activeTasks.length})</p>
               <div className="mt-2 space-y-2.5">
                 {activeGroups.length > 0 ? (
                   activeGroups.map((group) => (
@@ -212,7 +236,7 @@ export function AITaskLauncher(): React.JSX.Element | null {
               <p className="text-[11px] uppercase tracking-[0.14em] text-text-secondary">
                 Completed ({finishedTasks.length})
               </p>
-              <div className="mt-2 max-h-56 space-y-2.5 overflow-y-auto pr-1">
+              <div className="mt-2 max-h-44 space-y-2.5 overflow-y-auto pr-1">
                 {finishedGroups.length > 0 ? (
                   finishedGroups.map((group) => (
                     <TaskGroupCard
@@ -229,6 +253,44 @@ export function AITaskLauncher(): React.JSX.Element | null {
                 )}
               </div>
             </div>
+
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.14em] text-warning">
+                Missing Covers ({missingCoverCount})
+              </p>
+              <div className="mt-2 max-h-40 space-y-2 overflow-y-auto pr-1">
+                {coverAuditLoading && missingCoverCount === 0 ? (
+                  <p className="rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3 text-xs text-text-tertiary">
+                    Checking blogs...
+                  </p>
+                ) : missingCoverCount === 0 ? (
+                  <p className="rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3 text-xs text-success">
+                    All blogs currently have a cover image.
+                  </p>
+                ) : (
+                  missingCoverBlogs.slice(0, 8).map((blog) => (
+                    <button
+                      key={`missing-cover-${blog.slug}`}
+                      type="button"
+                      onClick={() => openEditPage(blog.slug)}
+                      className="w-full rounded-[12px] border border-warning/18 bg-warning-muted px-3.5 py-2.5 text-left text-xs transition-colors duration-150 hover:border-warning/26"
+                      title={`Open ${blog.title}`}
+                    >
+                      <p className="truncate font-medium text-warning">{blog.title}</p>
+                      <p className="mt-1 truncate text-text-secondary">
+                        <span className="muted-code">{blog.slug}</span>
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
+              {missingCoverCount > 8 && (
+                <p className="mt-2 text-xs text-text-tertiary">+{missingCoverCount - 8} more blogs without covers</p>
+              )}
+              {lastCheckedAt && (
+                <p className="mt-2 text-[11px] text-text-tertiary">Last checked {formatTime(lastCheckedAt)}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -237,11 +299,20 @@ export function AITaskLauncher(): React.JSX.Element | null {
         <button
           type="button"
           onClick={() => setOpen((current) => !current)}
-          className="relative inline-flex h-14 w-14 items-center justify-center rounded-full border border-accent/24 bg-[linear-gradient(180deg,rgba(255,92,143,0.26),rgba(255,92,143,0.12))] text-accent shadow-[0_20px_44px_rgba(255,92,143,0.26)] transition-transform duration-200 hover:-translate-y-0.5"
+          className={clsx(
+            'relative inline-flex h-14 w-14 items-center justify-center rounded-full border text-accent shadow-[0_20px_44px_rgba(255,92,143,0.26)] transition-transform duration-200 hover:-translate-y-0.5',
+            pendingCount > 0
+              ? 'border-accent/24 bg-[linear-gradient(180deg,rgba(255,92,143,0.26),rgba(255,92,143,0.12))]'
+              : missingCoverCount > 0
+                ? 'border-warning/24 bg-[linear-gradient(180deg,rgba(246,184,90,0.24),rgba(246,184,90,0.12))] text-warning shadow-[0_20px_44px_rgba(246,184,90,0.24)]'
+                : 'border-accent/24 bg-[linear-gradient(180deg,rgba(255,92,143,0.26),rgba(255,92,143,0.12))]'
+          )}
           title={open ? 'Hide AI tasks' : 'Show AI tasks'}
         >
           {activeCount > 0 ? (
             <Loader2 size={22} className="animate-spin" />
+          ) : missingCoverCount > 0 ? (
+            <AlertTriangle size={22} />
           ) : (
             <Sparkles size={22} />
           )}
@@ -252,25 +323,16 @@ export function AITaskLauncher(): React.JSX.Element | null {
           )}
         </button>
 
-        {activeCount > 0 && (
+        {pendingCount > 0 && (
           <span className="absolute -right-1.5 -top-1.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full border border-white/16 bg-bg-secondary px-1.5 text-xs font-semibold text-text-primary shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
-            {activeCount}
+            {pendingCount}
           </span>
         )}
 
-        {canClearQueue && (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              clearFinishedQueue()
-              setOpen(false)
-            }}
-            className="absolute -left-1.5 -top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/16 bg-bg-secondary text-text-secondary transition-colors duration-150 hover:text-text-primary"
-            title="Clear finished queue"
-          >
-            <X size={12} />
-          </button>
+        {missingCoverCount > 0 && (
+          <span className="absolute -left-1.5 -top-1.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full border border-warning/30 bg-bg-secondary px-1.5 text-xs font-semibold text-warning shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
+            {missingCoverCount}
+          </span>
         )}
       </div>
     </div>
