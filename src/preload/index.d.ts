@@ -6,6 +6,10 @@ import type {
   GitStatus,
   RemoteStatus,
   CLIResult,
+  CoverTemplatesResult,
+  PrepareGeneratedCoverInput,
+  PrepareGeneratedCoverResult,
+  CleanupTempFileResult,
   CreateAuthorOptions,
   CreateBlogOptions,
   UpdateBlogOptions,
@@ -50,6 +54,10 @@ interface AppAPI {
   writeBlogContent: (slug: string, content: string) => Promise<{ success: boolean; error?: string }>
   importNotion: (zip: string, slug: string) => Promise<CLIResult>
   sanitize: (slug: string) => Promise<CLIResult>
+  getCoverTemplates: () => Promise<CoverTemplatesResult>
+  prepareGeneratedCover: (input: PrepareGeneratedCoverInput) => Promise<PrepareGeneratedCoverResult>
+  runOptimize: () => Promise<CLIResult>
+  cleanupGeneratedCoverTempFile: (path: string) => Promise<CleanupTempFileResult>
   writeWithAI: (blogSlug: string, aiPrompt: string) => Promise<CLIResult>
   checkClaude: () => Promise<{ installed: boolean; version?: string; error?: string }>
   openTerminalLogin: () => Promise<{ success: boolean; error?: string }>

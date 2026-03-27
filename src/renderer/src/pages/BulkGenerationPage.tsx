@@ -15,6 +15,7 @@ import { useAuthors } from '../hooks/useAuthors'
 import { useBlogs } from '../hooks/useBlogs'
 import { useCategories } from '../hooks/useCategories'
 import { useAiTasks } from '../hooks/useAiTasks'
+import { useCoverTemplates } from '../hooks/useCoverTemplates'
 import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
 import { requestCoverAuditRefresh } from '../hooks/coverAuditRefresh'
 import { useToast } from '../components/ui/Toast'
@@ -26,7 +27,7 @@ import { Spinner } from '../components/ui/Spinner'
 import { FormField } from '../components/forms/FormField'
 import { AuthorDropdown } from '../components/shared/AuthorDropdown'
 import { InfoPill, PageIntro, PageScaffold, SurfaceCard } from '../components/layout/PageScaffold'
-import type { CreateBlogOptions } from '../types'
+import type { CoverTemplate, CreateBlogOptions } from '../types'
 
 type RowStatus = 'idle' | 'creating' | 'created' | 'queued' | 'failed'
 
@@ -38,8 +39,12 @@ interface BulkRow {
   description: string
   category: string
   prompt: string
+  generateCover: boolean
+  coverTemplateId: string
   coverPath: string
   status: RowStatus
+  coverWarning?: string
+  generatedCoverText?: string
   error?: string
 }
 
@@ -48,6 +53,7 @@ interface RowErrors {
   slug?: string
   description?: string
   category?: string
+  coverTemplateId?: string
 }
 
 interface BulkSummary {
@@ -81,6 +87,23 @@ function todayString(): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
+function resetRowRuntimeState(row: BulkRow): BulkRow {
+  return {
+    ...row,
+    status: 'idle',
+    error: undefined,
+    coverWarning: undefined,
+    generatedCoverText: undefined
+  }
+}
+
+function appendWarning(current: string | undefined, next: string): string {
+  const trimmedNext = next.trim()
+  if (!trimmedNext) return current ?? ''
+  if (!current) return trimmedNext
+  return `${current} ${trimmedNext}`
+}
+
 function createEmptyRow(overrides: Partial<BulkRow> = {}): BulkRow {
   return {
     id: createRowId(),
@@ -90,6 +113,8 @@ function createEmptyRow(overrides: Partial<BulkRow> = {}): BulkRow {
     description: '',
     category: '',
     prompt: '',
+    generateCover: true,
+    coverTemplateId: 'default',
     coverPath: '',
     status: 'idle',
     ...overrides
@@ -149,6 +174,12 @@ export default function BulkGenerationPage(): React.JSX.Element {
   const { blogs, loading: blogsLoading } = useBlogs()
   const { categories, loading: categoriesLoading } = useCategories()
   const { startTask } = useAiTasks()
+  const {
+    templates: coverTemplates,
+    loading: coverTemplatesLoading,
+    error: coverTemplatesError,
+    refresh: refreshCoverTemplates
+  } = useCoverTemplates()
 
   const [author, setAuthor] = useState('')
   const [date, setDate] = useState(todayString())
@@ -180,6 +211,15 @@ export default function BulkGenerationPage(): React.JSX.Element {
     [categories]
   )
 
+  const coverTemplateOptions = useMemo(
+    () => coverTemplates.map((template) => ({ value: template.id, label: template.id })),
+    [coverTemplates]
+  )
+
+  const coverTemplateMap = useMemo(() => {
+    return new Map<string, CoverTemplate>(coverTemplates.map((template) => [template.id, template]))
+  }, [coverTemplates])
+
   const existingSlugSet = useMemo(() => {
     return new Set(blogs.map((blog) => blog.slug.trim().toLowerCase()))
   }, [blogs])
@@ -206,6 +246,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
         description: source.description,
         category: source.category,
         prompt: source.prompt,
+        generateCover: source.generateCover,
+        coverTemplateId: source.coverTemplateId,
         coverPath: source.coverPath
       })
 
@@ -232,10 +274,9 @@ export default function BulkGenerationPage(): React.JSX.Element {
       if (!path) return
 
       updateRow(rowId, (row) => ({
-        ...row,
+        ...resetRowRuntimeState(row),
         coverPath: path,
-        status: 'idle',
-        error: undefined
+        generateCover: false
       }))
     },
     [updateRow]
@@ -257,6 +298,7 @@ export default function BulkGenerationPage(): React.JSX.Element {
       const slug = row.slug.trim()
       const description = row.description.trim()
       const category = row.category.trim()
+      const coverTemplateId = row.coverTemplateId.trim()
 
       if (!title) errors.title = 'Title is required'
 
@@ -274,6 +316,18 @@ export default function BulkGenerationPage(): React.JSX.Element {
       if (!description) errors.description = 'Description is required'
       if (!category) errors.category = 'Category is required'
 
+      if (row.generateCover) {
+        if (coverTemplatesLoading && coverTemplates.length === 0) {
+          errors.coverTemplateId = 'Cover templates are still loading'
+        } else if (!coverTemplateId) {
+          errors.coverTemplateId = 'Template is required when cover generation is enabled'
+        } else if (!coverTemplateMap.has(coverTemplateId)) {
+          errors.coverTemplateId = coverTemplatesError
+            ? 'Cover templates are unavailable right now'
+            : 'Selected cover template is unavailable'
+        }
+      }
+
       if (Object.keys(errors).length > 0) {
         nextRowErrors[row.id] = errors
       }
@@ -283,7 +337,17 @@ export default function BulkGenerationPage(): React.JSX.Element {
     setRowErrors(nextRowErrors)
 
     return Object.keys(nextGlobalErrors).length === 0 && Object.keys(nextRowErrors).length === 0
-  }, [author, date, timeToRead, existingSlugSet, rows])
+  }, [
+    author,
+    date,
+    timeToRead,
+    existingSlugSet,
+    rows,
+    coverTemplatesLoading,
+    coverTemplates.length,
+    coverTemplateMap,
+    coverTemplatesError
+  ])
 
   const handleRun = useCallback(async (): Promise<void> => {
     if (running) return
@@ -316,11 +380,12 @@ export default function BulkGenerationPage(): React.JSX.Element {
       description: row.description.trim(),
       category: row.category.trim(),
       prompt: row.prompt.trim(),
+      coverTemplateId: row.coverTemplateId.trim(),
       coverPath: row.coverPath.trim()
     }))
 
     setRunning(true)
-    setRows((prev) => prev.map((row) => ({ ...row, status: 'idle', error: undefined })))
+    setRows((prev) => prev.map((row) => resetRowRuntimeState(row)))
     console.log(`[bulk-generation] Prepared ${preparedRows.length} rows for processing`)
 
     let created = 0
@@ -333,9 +398,9 @@ export default function BulkGenerationPage(): React.JSX.Element {
         prev.map((entry) =>
           entry.id === row.id
             ? {
-                ...entry,
+                ...resetRowRuntimeState(entry),
                 status: 'creating',
-                error: undefined
+                coverWarning: undefined
               }
             : entry
         )
@@ -353,11 +418,47 @@ export default function BulkGenerationPage(): React.JSX.Element {
         unlisted
       }
 
-      if (row.coverPath) {
-        options.cover = row.coverPath
-      }
+      let coverWarning: string | undefined
+      let generatedCoverText: string | undefined
+      let generatedCoverTempPath: string | undefined
+      let generatedCoverUsed = false
 
       try {
+        if (row.generateCover) {
+          const selectedTemplate = coverTemplateMap.get(row.coverTemplateId)
+
+          if (!selectedTemplate) {
+            throw new Error('Selected cover template is unavailable.')
+          }
+
+          const generatedCoverResult = await window.api.prepareGeneratedCover({
+            title: row.title,
+            slug: row.slug,
+            templateId: row.coverTemplateId,
+            maxCharLimit: selectedTemplate.maxCharLimit
+          })
+
+          generatedCoverText = generatedCoverResult.coverText?.trim() || undefined
+
+          if (generatedCoverResult.success && generatedCoverResult.tempPath) {
+            generatedCoverTempPath = generatedCoverResult.tempPath
+            generatedCoverUsed = true
+            options.cover = generatedCoverTempPath
+            console.log(`[bulk-generation] Generated cover for ${row.slug} using ${row.coverTemplateId}`)
+          } else {
+            coverWarning = appendWarning(
+              coverWarning,
+              `${generatedCoverResult.error || 'Cover generation failed.'} Creating the blog without a cover.`
+            )
+            console.warn(
+              `[bulk-generation] Cover generation failed for ${row.slug}:`,
+              generatedCoverResult.error
+            )
+          }
+        } else if (row.coverPath) {
+          options.cover = row.coverPath
+        }
+
         const createResult = await window.api.createBlog(options)
         if (!createResult.success) {
           console.error(`[bulk-generation] Failed creating ${row.slug}:`, createResult.error)
@@ -368,6 +469,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
                 ? {
                     ...entry,
                     status: 'failed',
+                    coverWarning,
+                    generatedCoverText,
                     error: createResult.error || 'Failed to create blog post'
                   }
                 : entry
@@ -377,9 +480,30 @@ export default function BulkGenerationPage(): React.JSX.Element {
         }
 
         created += 1
-        console.log(`[bulk-generation] Created ${row.slug}, queueing AI task`)
+        console.log(`[bulk-generation] Created ${row.slug}`)
         requestGitStatusRefresh()
         requestCoverAuditRefresh()
+
+        if (generatedCoverUsed) {
+          const optimizeResult = await window.api.runOptimize()
+
+          if (!optimizeResult.success) {
+            coverWarning = appendWarning(
+              coverWarning,
+              'Cover was generated, but optimize failed. Check the console output for details.'
+            )
+            console.warn(
+              `[bulk-generation] Optimize failed after generating ${row.slug}:`,
+              optimizeResult.error || optimizeResult.output
+            )
+          } else {
+            console.log(`[bulk-generation] Optimize finished after generating cover for ${row.slug}`)
+            requestGitStatusRefresh()
+            requestCoverAuditRefresh()
+          }
+        }
+
+        console.log(`[bulk-generation] Queueing AI task for ${row.slug}`)
 
         const effectivePrompt = row.prompt || row.description
         if (!row.prompt) {
@@ -404,6 +528,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
                 ? {
                     ...entry,
                     status: 'queued',
+                    coverWarning,
+                    generatedCoverText,
                     error: undefined
                   }
                 : entry
@@ -418,6 +544,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
                 ? {
                     ...entry,
                     status: 'failed',
+                    coverWarning,
+                    generatedCoverText,
                     error: 'Blog created, but AI task was skipped (already queued/running).'
                   }
                 : entry
@@ -433,11 +561,25 @@ export default function BulkGenerationPage(): React.JSX.Element {
               ? {
                   ...entry,
                   status: 'failed',
+                  coverWarning,
+                  generatedCoverText,
                   error: err instanceof Error ? err.message : 'Unexpected error while creating blog'
                 }
               : entry
           )
         )
+      } finally {
+        if (generatedCoverTempPath) {
+          const tempPathToCleanup = generatedCoverTempPath
+          void window.api.cleanupGeneratedCoverTempFile(tempPathToCleanup).then((cleanupResult) => {
+            if (!cleanupResult.success) {
+              console.warn(
+                `[bulk-generation] Failed cleaning up generated cover temp file for ${row.slug}:`,
+                cleanupResult.error
+              )
+            }
+          })
+        }
       }
     }
 
@@ -463,6 +605,7 @@ export default function BulkGenerationPage(): React.JSX.Element {
     requestCoverAuditRefresh()
   }, [
     author,
+    coverTemplateMap,
     date,
     featured,
     rows,
@@ -593,11 +736,25 @@ export default function BulkGenerationPage(): React.JSX.Element {
             </Button>
           </div>
 
+          {coverTemplatesError && (
+            <div className="flex items-center justify-between gap-4 rounded-[14px] border border-warning/18 bg-warning-muted px-4 py-3">
+              <p className="text-sm text-warning">
+                Cover templates failed to load. Generated covers are blocked until templates are available.
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => void refreshCoverTemplates()}>
+                Retry templates
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-4">
             {rows.map((row, index) => {
               const errors = rowErrors[row.id]
               const hasErrors = !!errors && Object.values(errors).some(Boolean)
               const pill = getStatusPill(row.status, hasErrors)
+              const selectedTemplate = coverTemplateMap.get(row.coverTemplateId)
+              const showGeneratedCoverText =
+                !!row.generatedCoverText && row.generatedCoverText.trim() !== row.title.trim()
 
               return (
                 <div
@@ -654,11 +811,9 @@ export default function BulkGenerationPage(): React.JSX.Element {
                         onChange={(e) => {
                           const value = e.target.value
                           updateRow(row.id, (entry) => ({
-                            ...entry,
+                            ...resetRowRuntimeState(entry),
                             title: value,
-                            slug: entry.slugManual ? entry.slug : generateSlug(value),
-                            status: 'idle',
-                            error: undefined
+                            slug: entry.slugManual ? entry.slug : generateSlug(value)
                           }))
                           if (errors?.title || errors?.slug) {
                             setRowErrors((prev) => ({
@@ -678,11 +833,9 @@ export default function BulkGenerationPage(): React.JSX.Element {
                         onChange={(e) => {
                           const value = e.target.value
                           updateRow(row.id, (entry) => ({
-                            ...entry,
+                            ...resetRowRuntimeState(entry),
                             slugManual: true,
-                            slug: value,
-                            status: 'idle',
-                            error: undefined
+                            slug: value
                           }))
                           if (errors?.slug) {
                             setRowErrors((prev) => ({
@@ -701,10 +854,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
                         value={row.category}
                         onChange={(e) => {
                           updateRow(row.id, (entry) => ({
-                            ...entry,
-                            category: e.target.value,
-                            status: 'idle',
-                            error: undefined
+                            ...resetRowRuntimeState(entry),
+                            category: e.target.value
                           }))
                           if (errors?.category) {
                             setRowErrors((prev) => ({
@@ -727,10 +878,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
                           value={row.description}
                           onChange={(e) => {
                             updateRow(row.id, (entry) => ({
-                              ...entry,
-                              description: e.target.value,
-                              status: 'idle',
-                              error: undefined
+                              ...resetRowRuntimeState(entry),
+                              description: e.target.value
                             }))
                             if (errors?.description) {
                               setRowErrors((prev) => ({
@@ -760,10 +909,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
                           value={row.prompt}
                           onChange={(e) => {
                             updateRow(row.id, (entry) => ({
-                              ...entry,
-                              prompt: e.target.value,
-                              status: 'idle',
-                              error: undefined
+                              ...resetRowRuntimeState(entry),
+                              prompt: e.target.value
                             }))
                           }}
                           placeholder="Optional instructions for AI."
@@ -779,10 +926,81 @@ export default function BulkGenerationPage(): React.JSX.Element {
                     </div>
 
                     <div className="space-y-3">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">
-                        Cover image (optional)
-                      </p>
-                      {row.coverPath ? (
+                      <div className="rounded-[14px] border border-white/10 bg-white/[0.03] p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-[0.18em] text-text-tertiary">
+                              Cover image
+                            </p>
+                            <p className="mt-1 text-sm text-text-secondary">
+                              Generate a PNG automatically or keep the manual upload flow.
+                            </p>
+                          </div>
+                          <label className="inline-flex items-center gap-2.5 text-sm text-text-primary">
+                            <input
+                              type="checkbox"
+                              checked={row.generateCover}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                updateRow(row.id, (entry) => ({
+                                  ...resetRowRuntimeState(entry),
+                                  generateCover: checked
+                                }))
+                                if (errors?.coverTemplateId) {
+                                  setRowErrors((prev) => ({
+                                    ...prev,
+                                    [row.id]: { ...prev[row.id], coverTemplateId: '' }
+                                  }))
+                                }
+                              }}
+                              className="h-4 w-4 rounded border border-white/16 bg-[#111317] text-accent accent-accent"
+                            />
+                            <span>Generate</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {row.generateCover ? (
+                        <>
+                          <FormField
+                            label="Template"
+                            error={errors?.coverTemplateId}
+                            helperText={
+                              selectedTemplate
+                                ? `Template: ${selectedTemplate.id}. Max ${selectedTemplate.maxCharLimit} characters before AI fallback.`
+                                : coverTemplatesLoading
+                                  ? 'Loading templates...'
+                                  : coverTemplatesError
+                                    ? 'Templates are unavailable right now.'
+                                    : 'Choose a template for this blog cover.'
+                            }
+                          >
+                            <Select
+                              value={row.coverTemplateId}
+                              onChange={(e) => {
+                                updateRow(row.id, (entry) => ({
+                                  ...resetRowRuntimeState(entry),
+                                  coverTemplateId: e.target.value
+                                }))
+                                if (errors?.coverTemplateId) {
+                                  setRowErrors((prev) => ({
+                                    ...prev,
+                                    [row.id]: { ...prev[row.id], coverTemplateId: '' }
+                                  }))
+                                }
+                              }}
+                              options={coverTemplateOptions}
+                              disabled={coverTemplatesLoading || coverTemplateOptions.length === 0}
+                              placeholder={coverTemplatesLoading ? 'Loading templates...' : 'Select template...'}
+                              error={errors?.coverTemplateId}
+                            />
+                          </FormField>
+
+                          <div className="rounded-[14px] border border-white/10 bg-white/[0.03] px-3.5 py-3 text-sm leading-6 text-text-secondary">
+                            A cover will be generated during the run, attached to the blog, and optimized in the website repo.
+                          </div>
+                        </>
+                      ) : row.coverPath ? (
                         <div className="overflow-hidden rounded-[14px] border border-white/10 bg-white/[0.03]">
                           <div className="relative">
                             <img
@@ -797,10 +1015,8 @@ export default function BulkGenerationPage(): React.JSX.Element {
                               type="button"
                               onClick={() =>
                                 updateRow(row.id, (entry) => ({
-                                  ...entry,
-                                  coverPath: '',
-                                  status: 'idle',
-                                  error: undefined
+                                  ...resetRowRuntimeState(entry),
+                                  coverPath: ''
                                 }))
                               }
                               className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-xl border border-white/10 bg-[#08111f]/90 text-text-secondary transition-colors hover:text-danger"
@@ -824,6 +1040,23 @@ export default function BulkGenerationPage(): React.JSX.Element {
                       )}
                     </div>
                   </div>
+
+                  {row.coverWarning && (
+                    <div className="mt-3 rounded-[12px] border border-warning/18 bg-warning-muted px-3.5 py-3">
+                      <p className="text-sm text-warning">{row.coverWarning}</p>
+                      {showGeneratedCoverText && (
+                        <p className="mt-2 text-xs leading-6 text-text-secondary">
+                          Cover text used: <span className="font-medium text-text-primary">{row.generatedCoverText}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {!row.coverWarning && showGeneratedCoverText && (
+                    <p className="mt-3 text-xs leading-6 text-text-tertiary">
+                      Cover text used: <span className="font-medium text-text-primary">{row.generatedCoverText}</span>
+                    </p>
+                  )}
 
                   {row.error && <p className="mt-3 text-sm text-danger">{row.error}</p>}
                 </div>

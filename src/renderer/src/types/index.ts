@@ -44,6 +44,35 @@ export interface CLIResult {
   error?: string
 }
 
+export interface CoverTemplate {
+  id: string
+  maxCharLimit: number
+}
+
+export interface CoverTemplatesResult {
+  templates: CoverTemplate[]
+}
+
+export interface PrepareGeneratedCoverInput {
+  title: string
+  slug: string
+  templateId: string
+  maxCharLimit: number
+}
+
+export interface PrepareGeneratedCoverResult {
+  success: boolean
+  tempPath?: string
+  coverText?: string
+  usedAiFallback?: boolean
+  error?: string
+}
+
+export interface CleanupTempFileResult {
+  success: boolean
+  error?: string
+}
+
 export interface CreateAuthorOptions {
   name: string
   slug: string

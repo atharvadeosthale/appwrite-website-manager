@@ -3,6 +3,7 @@ import { ToastProvider } from './components/ui/Toast'
 import { RefreshContext, useRefreshProvider } from './hooks/useRefreshKey'
 import { AiTasksProvider } from './hooks/useAiTasks'
 import { CoverAuditProvider } from './hooks/useCoverAudit'
+import { CoverTemplatesProvider } from './hooks/useCoverTemplates'
 import WelcomePage from './pages/WelcomePage'
 import DashboardLayout from './components/layout/DashboardLayout'
 import DashboardPage from './pages/DashboardPage'
@@ -24,29 +25,31 @@ function App(): React.JSX.Element {
   return (
     <RefreshContext.Provider value={refreshValue}>
       <ToastProvider>
-        <AiTasksProvider>
-          <CoverAuditProvider>
-            <HashRouter>
-              <Routes>
-                <Route path="/" element={<WelcomePage />} />
-                <Route path="/setup" element={<SetupWizardPage />} />
-                <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<DashboardPage />} />
-                  <Route path="authors" element={<AuthorListPage />} />
-                  <Route path="authors/create" element={<CreateAuthorPage />} />
-                  <Route path="blogs" element={<BlogListPage />} />
-                  <Route path="blogs/create" element={<CreateBlogPage />} />
-                  <Route path="blogs/:slug/edit" element={<EditBlogPage />} />
-                  <Route path="bulk-generation" element={<BulkGenerationPage />} />
-                  <Route path="import-notion" element={<NotionImportPage />} />
-                  <Route path="sanitize" element={<SanitizePage />} />
-                  <Route path="categories" element={<CategoryListPage />} />
-                </Route>
-              </Routes>
-            </HashRouter>
-            <AITaskLauncher />
-          </CoverAuditProvider>
-        </AiTasksProvider>
+        <CoverTemplatesProvider>
+          <AiTasksProvider>
+            <CoverAuditProvider>
+              <HashRouter>
+                <Routes>
+                  <Route path="/" element={<WelcomePage />} />
+                  <Route path="/setup" element={<SetupWizardPage />} />
+                  <Route path="/dashboard" element={<DashboardLayout />}>
+                    <Route index element={<DashboardPage />} />
+                    <Route path="authors" element={<AuthorListPage />} />
+                    <Route path="authors/create" element={<CreateAuthorPage />} />
+                    <Route path="blogs" element={<BlogListPage />} />
+                    <Route path="blogs/create" element={<CreateBlogPage />} />
+                    <Route path="blogs/:slug/edit" element={<EditBlogPage />} />
+                    <Route path="bulk-generation" element={<BulkGenerationPage />} />
+                    <Route path="import-notion" element={<NotionImportPage />} />
+                    <Route path="sanitize" element={<SanitizePage />} />
+                    <Route path="categories" element={<CategoryListPage />} />
+                  </Route>
+                </Routes>
+              </HashRouter>
+              <AITaskLauncher />
+            </CoverAuditProvider>
+          </AiTasksProvider>
+        </CoverTemplatesProvider>
       </ToastProvider>
     </RefreshContext.Provider>
   )

@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type {
+  CoverTemplatesResult,
+  PrepareGeneratedCoverInput,
+  PrepareGeneratedCoverResult,
+  CleanupTempFileResult
+} from '../renderer/src/types'
 
 // Custom APIs for renderer
 const api = {
@@ -69,6 +75,13 @@ const api = {
     ipcRenderer.invoke('cli:import-notion', zip, slug),
   sanitize: (slug: string): Promise<{ success: boolean; output: string; error?: string }> =>
     ipcRenderer.invoke('cli:sanitize', slug),
+  getCoverTemplates: (): Promise<CoverTemplatesResult> => ipcRenderer.invoke('cover:get-templates'),
+  prepareGeneratedCover: (input: PrepareGeneratedCoverInput): Promise<PrepareGeneratedCoverResult> =>
+    ipcRenderer.invoke('cover:prepare-generated-cover', input),
+  runOptimize: (): Promise<{ success: boolean; output: string; error?: string }> =>
+    ipcRenderer.invoke('cover:run-optimize'),
+  cleanupGeneratedCoverTempFile: (path: string): Promise<CleanupTempFileResult> =>
+    ipcRenderer.invoke('cover:cleanup-temp-file', path),
   writeWithAI: (
     blogSlug: string,
     aiPrompt: string
