@@ -109,6 +109,10 @@ export interface UpdateBlogOptions {
   featured: boolean
   unlisted: boolean
   cover?: string
+  faqs?: Array<{
+    question: string
+    answer: string
+  }>
 }
 
 export interface PrerequisiteStatus {

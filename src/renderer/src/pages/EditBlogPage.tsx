@@ -9,7 +9,9 @@ import {
   X,
   Check,
   Save,
-  Sparkles
+  Sparkles,
+  Plus,
+  Trash2
 } from 'lucide-react'
 import {
   MDXEditor,
@@ -62,6 +64,11 @@ import { requestGitStatusRefresh } from '../hooks/gitStatusRefresh'
 import { requestCoverAuditRefresh } from '../hooks/coverAuditRefresh'
 import { useAiTasks, type AiTaskStatus } from '../hooks/useAiTasks'
 import type { Author, UpdateBlogOptions } from '../types'
+
+type FaqItem = {
+  question: string
+  answer: string
+}
 
 /* ─── Author Dropdown with Avatars ─── */
 
@@ -265,6 +272,63 @@ function stripFrontmatter(content: string): { frontmatter: string; body: string 
   return { frontmatter: '', body: content }
 }
 
+function unquoteYamlValue(value: string): string {
+  const trimmed = value.trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed
+      .slice(1, -1)
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .replace(/''/g, "'")
+  }
+  return trimmed
+}
+
+function parseFaqsFromFrontmatter(frontmatter: string): FaqItem[] {
+  const lines = frontmatter.replace(FRONTMATTER_REGEX, (match) =>
+    match.replace(/^---\n?/, '').replace(/\n?---\n?$/, '')
+  ).split(/\r?\n/)
+  const faqs: FaqItem[] = []
+  let current: FaqItem | null = null
+  let inFaqs = false
+
+  for (const line of lines) {
+    if (/^faqs:\s*$/.test(line)) {
+      inFaqs = true
+      continue
+    }
+    if (!inFaqs) continue
+    if (/^[A-Za-z][A-Za-z0-9_-]*:\s*/.test(line)) break
+
+    const questionMatch = line.match(/^\s*-\s+question:\s*(.*)$/)
+    if (questionMatch) {
+      if (current) faqs.push(current)
+      current = { question: unquoteYamlValue(questionMatch[1]), answer: '' }
+      continue
+    }
+
+    const answerMatch = line.match(/^\s+answer:\s*(.*)$/)
+    if (answerMatch && current) {
+      current.answer = unquoteYamlValue(answerMatch[1])
+    }
+  }
+
+  if (current) faqs.push(current)
+  return faqs
+}
+
+function cleanFaqs(faqs: FaqItem[]): FaqItem[] {
+  return faqs
+    .map((faq) => ({
+      question: faq.question.replace(/\s*\n+\s*/g, ' ').trim(),
+      answer: faq.answer.replace(/\s*\n+\s*/g, ' ').trim()
+    }))
+    .filter((faq) => faq.question && faq.answer)
+}
+
 function decodeURIComponentSafe(value: string): string {
   try {
     return decodeURIComponent(value)
@@ -325,6 +389,7 @@ export default function EditBlogPage(): React.JSX.Element {
   const [featured, setFeatured] = useState(false)
   const [unlisted, setUnlisted] = useState(false)
   const [coverPath, setCoverPath] = useState('')
+  const [faqs, setFaqs] = useState<FaqItem[]>([])
 
   // Markdoc content
   const [markdocContent, setMarkdocContent] = useState('')
@@ -431,6 +496,7 @@ export default function EditBlogPage(): React.JSX.Element {
         if (result.success && result.content) {
           const { frontmatter, body } = stripFrontmatter(result.content)
           frontmatterRef.current = frontmatter
+          setFaqs(parseFaqsFromFrontmatter(frontmatter))
           setMarkdocContent(body)
           setIsDirty(false)
         }
@@ -491,7 +557,8 @@ export default function EditBlogPage(): React.JSX.Element {
         author,
         category,
         featured,
-        unlisted
+        unlisted,
+        faqs: cleanFaqs(faqs)
       }
       if (coverPath) options.cover = coverPath
 
@@ -540,6 +607,7 @@ export default function EditBlogPage(): React.JSX.Element {
     if (reloadResult.success && reloadResult.content) {
       const { frontmatter, body } = stripFrontmatter(reloadResult.content)
       frontmatterRef.current = frontmatter
+      setFaqs(parseFaqsFromFrontmatter(frontmatter))
       setMarkdocContent(body)
       setOriginalContent(frontmatter + body)
       editorInitializedRef.current = false
@@ -578,6 +646,18 @@ export default function EditBlogPage(): React.JSX.Element {
 
     previousTaskStatusesRef.current = nextStatusMap
   }, [tasks, slug, reloadEditorFromDisk])
+
+  const updateFaq = useCallback((index: number, patch: Partial<FaqItem>): void => {
+    setFaqs((prev) => prev.map((faq, i) => (i === index ? { ...faq, ...patch } : faq)))
+  }, [])
+
+  const addFaq = useCallback((): void => {
+    setFaqs((prev) => [...prev, { question: '', answer: '' }])
+  }, [])
+
+  const removeFaq = useCallback((index: number): void => {
+    setFaqs((prev) => prev.filter((_, i) => i !== index))
+  }, [])
 
   /* ─── Write with AI ─── */
   const handleWriteWithAI = useCallback(async (): Promise<void> => {
@@ -849,6 +929,66 @@ export default function EditBlogPage(): React.JSX.Element {
             </p>
           </div>
           <Toggle checked={unlisted} onChange={setUnlisted} />
+        </div>
+
+        <div className="space-y-3 rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-text-primary">FAQs</p>
+              <p className="mt-0.5 text-xs text-text-tertiary">
+                Saved to frontmatter. Empty question or answer pairs are ignored.
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" icon={Plus} onClick={addFaq}>
+              Add
+            </Button>
+          </div>
+
+          {faqs.length > 0 && (
+            <div className="space-y-3">
+              {faqs.map((faq, index) => (
+                <div
+                  key={index}
+                  className="grid gap-3 rounded-[12px] border border-white/8 bg-black/10 p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-text-tertiary">
+                      FAQ {index + 1}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => removeFaq(index)}
+                      className={clsx(
+                        'rounded-xl border border-white/10 p-2 text-text-tertiary transition-colors duration-150',
+                        'hover:border-danger/35 hover:text-danger'
+                      )}
+                      title="Remove FAQ"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <Input
+                    value={faq.question}
+                    onChange={(e) => updateFaq(index, { question: e.target.value })}
+                    placeholder="Question"
+                  />
+                  <textarea
+                    value={faq.answer}
+                    onChange={(e) => updateFaq(index, { answer: e.target.value })}
+                    placeholder="Answer"
+                    rows={3}
+                    className={clsx(
+                      'min-h-[96px] w-full resize-y rounded-[12px] border border-white/10 px-4 py-3 text-sm leading-7',
+                      'bg-[linear-gradient(180deg,rgba(22,22,26,0.94),rgba(14,14,18,0.9))] text-text-primary font-sans',
+                      'placeholder:text-text-tertiary',
+                      'hover:border-white/16 focus:border-white/18 focus:outline-none focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)]',
+                      'transition-all duration-200'
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="elevated-divider" />

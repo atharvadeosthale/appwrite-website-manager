@@ -1,6 +1,7 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
 import { spawn, execFile, execFileSync } from 'child_process'
-import { existsSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { dirname, join } from 'path'
 import store from '../store'
 
 function getRepoPath(): string {
@@ -170,6 +171,174 @@ function spawnCliWithStreaming(
   })
 }
 
+type BlogMetadataUpdate = {
+  title: string
+  slug: string
+  description: string
+  date: string
+  timeToRead: number
+  author: string
+  category: string
+  featured: boolean
+  unlisted: boolean
+  cover?: string
+  faqs?: Array<{
+    question: string
+    answer: string
+  }>
+}
+
+function yamlQuote(value: string | number | boolean): string {
+  const str = String(value)
+  if (/[:{}"'\n]/.test(str) || str !== str.trim()) {
+    return `"${str.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  }
+  return str
+}
+
+function updateFrontmatterLine(
+  lines: string[],
+  key: string,
+  value: string | number | boolean
+): boolean {
+  const index = lines.findIndex((line) => line.match(new RegExp(`^${key}:\\s*`)))
+  if (index === -1) return false
+
+  lines[index] = `${key}: ${yamlQuote(value)}`
+  return true
+}
+
+function insertFrontmatterLine(
+  lines: string[],
+  key: string,
+  value: string | number | boolean,
+  afterKey: string
+): void {
+  const afterIndex = lines.findIndex((line) => line.match(new RegExp(`^${afterKey}:\\s*`)))
+  const line = `${key}: ${yamlQuote(value)}`
+  if (afterIndex === -1) {
+    lines.push(line)
+    return
+  }
+
+  lines.splice(afterIndex + 1, 0, line)
+}
+
+function cleanFaqs(
+  faqs: Array<{
+    question: string
+    answer: string
+  }> = []
+): Array<{ question: string; answer: string }> {
+  return faqs
+    .map((faq) => ({
+      question: faq.question.replace(/\s*\n+\s*/g, ' ').trim(),
+      answer: faq.answer.replace(/\s*\n+\s*/g, ' ').trim()
+    }))
+    .filter((faq) => faq.question && faq.answer)
+}
+
+function removeFrontmatterBlock(lines: string[], key: string): void {
+  const startIndex = lines.findIndex((line) => line.match(new RegExp(`^${key}:\\s*`)))
+  if (startIndex === -1) return
+
+  let endIndex = startIndex + 1
+  while (endIndex < lines.length && !/^[A-Za-z][A-Za-z0-9_-]*:\s*/.test(lines[endIndex])) {
+    endIndex += 1
+  }
+
+  lines.splice(startIndex, endIndex - startIndex)
+}
+
+function insertFaqs(lines: string[], faqs: Array<{ question: string; answer: string }>): void {
+  if (faqs.length === 0) return
+
+  const faqLines = faqs.flatMap((faq, index) => [
+    `${index === 0 ? 'faqs:' : ''}`,
+    `  - question: ${yamlQuote(faq.question)}`,
+    `    answer: ${yamlQuote(faq.answer)}`
+  ])
+
+  const compactFaqLines = faqLines.filter(Boolean)
+  const insertAfterCandidates = ['unlisted', 'featured', 'category']
+  const afterIndex = insertAfterCandidates
+    .map((key) => lines.findIndex((line) => line.match(new RegExp(`^${key}:\\s*`))))
+    .find((index) => index !== -1)
+
+  if (afterIndex === undefined || afterIndex === -1) {
+    lines.push(...compactFaqLines)
+    return
+  }
+
+  lines.splice(afterIndex + 1, 0, ...compactFaqLines)
+}
+
+function resolveCoverPath(repoPath: string, options: BlogMetadataUpdate): string | undefined {
+  if (!options.cover) return undefined
+  if (options.cover.startsWith('/images/')) return options.cover
+
+  const coverTarget = join(repoPath, 'static', 'images', 'blog', options.slug, 'cover.png')
+  mkdirSync(dirname(coverTarget), { recursive: true })
+  copyFileSync(options.cover, coverTarget)
+  return `/images/blog/${options.slug}/cover.png`
+}
+
+function updateBlogMetadata(repoPath: string, options: BlogMetadataUpdate): string {
+  const markdocPath = join(repoPath, 'src', 'routes', 'blog', 'post', options.slug, '+page.markdoc')
+  if (!existsSync(markdocPath)) {
+    throw new Error(`Blog file not found: ${markdocPath}`)
+  }
+
+  const content = readFileSync(markdocPath, 'utf-8')
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
+  if (!match) {
+    throw new Error(`Blog frontmatter not found: ${markdocPath}`)
+  }
+
+  const frontmatter = match[1]
+  const body = content.slice(match[0].length)
+  const lines = frontmatter.split(/\r?\n/)
+  const cover = resolveCoverPath(repoPath, options)
+  const updates: Array<[string, string | number | boolean]> = [
+    ['layout', 'post'],
+    ['title', options.title],
+    ['description', options.description],
+    ['date', options.date],
+    ...(cover ? ([['cover', cover]] as Array<[string, string]>) : []),
+    ['timeToRead', options.timeToRead],
+    ['author', options.author],
+    ['category', options.category],
+    ['featured', options.featured]
+  ]
+
+  for (const [key, value] of updates) {
+    if (!updateFrontmatterLine(lines, key, value)) {
+      insertFrontmatterLine(lines, key, value, key === 'layout' ? 'layout' : 'featured')
+    }
+  }
+
+  const unlistedIndex = lines.findIndex((line) => /^unlisted:\s*/.test(line))
+  if (options.unlisted) {
+    if (unlistedIndex === -1) {
+      insertFrontmatterLine(lines, 'unlisted', true, 'featured')
+    } else {
+      lines[unlistedIndex] = 'unlisted: true'
+    }
+  } else if (unlistedIndex !== -1) {
+    lines.splice(unlistedIndex, 1)
+  }
+
+  if (options.faqs) {
+    const faqs = cleanFaqs(options.faqs)
+    removeFrontmatterBlock(lines, 'faqs')
+    insertFaqs(lines, faqs)
+  }
+
+  writeFileSync(markdocPath, `---\n${lines.join('\n')}\n---${body}`, 'utf-8')
+
+  return `Updated metadata for blog "${options.slug}".${cover && !options.cover?.startsWith('/images/') ? `\nCopied cover image to ${cover}.` : ''}\n`
+}
+
 export function registerCliHandlers(): void {
   // Data query handlers - collect stdout and parse JSON
   ipcMain.handle('cli:get-authors', async () => {
@@ -280,52 +449,22 @@ export function registerCliHandlers(): void {
     }
   )
 
-  ipcMain.handle(
-    'cli:update-blog',
-    async (
-      event,
-      options: {
-        title: string
-        slug: string
-        description: string
-        date: string
-        timeToRead: number
-        author: string
-        category: string
-        featured: boolean
-        unlisted: boolean
-        cover?: string
+  ipcMain.handle('cli:update-blog', async (event, options: BlogMetadataUpdate) => {
+    const cwd = getRepoPath()
+    try {
+      const output = updateBlogMetadata(cwd, options)
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('cli:output', output)
       }
-    ) => {
-      const cwd = getRepoPath()
-      const args = [
-        'blog',
-        'create-blog',
-        '--title',
-        options.title,
-        '--slug',
-        options.slug,
-        '--description',
-        options.description,
-        '--date',
-        options.date,
-        '--time-to-read',
-        String(options.timeToRead),
-        '--author',
-        options.author,
-        '--category',
-        options.category
-      ]
-
-      if (options.cover) args.push('--cover', options.cover)
-      if (options.featured) args.push('--featured')
-      if (options.unlisted) args.push('--unlisted')
-
-      args.push('--force')
-
-      return spawnCliWithStreaming(args, cwd, event)
+      return { success: true, output }
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Failed to update blog metadata'
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('cli:output', `${error}\n`)
+      }
+      return { success: false, output: `${error}\n`, error }
     }
-  )
+  })
 
   ipcMain.handle('cli:import-notion', async (event, zip: string, slug: string) => {
     const cwd = getRepoPath()
